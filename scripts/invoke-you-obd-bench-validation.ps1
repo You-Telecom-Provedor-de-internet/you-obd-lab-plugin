@@ -15,6 +15,7 @@ param(
     [switch]$SkipAppLaunch,
     [switch]$KeepAppRunning,
     [switch]$NavigateToDiagnostics,
+    [switch]$OpenScannerTecnico,
     [switch]$DryRun,
     [int]$WarmupSeconds = 10,
     [int]$LogcatLines = 1000,
@@ -25,6 +26,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot "lib\YouObdLab.Common.ps1")
 
+$SimulatorBaseUrl = Resolve-YouObdSimulatorBaseUrl -BaseUrl $SimulatorBaseUrl
 $apiDefaults = Get-YouObdApiCredentialDefaults
 if ([string]::IsNullOrWhiteSpace($User)) { $User = $apiDefaults.User }
 if ([string]::IsNullOrWhiteSpace($Password)) { $Password = $apiDefaults.Password }
@@ -123,10 +125,14 @@ function Write-ReportArtifacts {
     $lines += "- app_installed: $($Report.android.app_installed)"
     $lines += "- launched: $($Report.android.launched)"
     $lines += "- navigated_to_diagnostics: $($Report.android.navigated_to_diagnostics)"
+    $lines += "- scanner_tecnico_opened: $($Report.android.scanner_tecnico_opened)"
     $lines += "- diagnostics_tab_detected: $($Report.android.diagnostics_tab_detected)"
     $lines += "- scanner_card_present: $($Report.android.scanner_card_present)"
     $lines += "- scanner_button_present: $($Report.android.scanner_button_present)"
     $lines += "- live_sensor_summary_present: $($Report.android.live_sensor_summary_present)"
+    $lines += "- scanner_session_present: $($Report.android.scanner_session_present)"
+    $lines += "- scanner_live_read_present: $($Report.android.scanner_live_read_present)"
+    $lines += "- scanner_persistence_present: $($Report.android.scanner_persistence_present)"
     $lines += "- version_name: $($Report.android.version_name)"
     $lines += "- version_code: $($Report.android.version_code)"
     $lines += ""
@@ -197,10 +203,14 @@ $report = [ordered]@{
         app_installed = $false
         launched = $false
         navigated_to_diagnostics = $false
+        scanner_tecnico_opened = $false
         diagnostics_tab_detected = $false
         scanner_card_present = $false
         scanner_button_present = $false
         live_sensor_summary_present = $false
+        scanner_session_present = $false
+        scanner_live_read_present = $false
+        scanner_persistence_present = $false
         version_name = ""
         version_code = ""
     }
@@ -304,6 +314,12 @@ try {
             if ($shouldNavigateToDiagnostics) {
                 Open-YouAutoCarDiagnosticsTab -DeviceId $resolvedDeviceId
                 $report.android.navigated_to_diagnostics = $true
+
+                $shouldOpenScannerTecnico = $OpenScannerTecnico.IsPresent -or ($AppPackage -eq "com.youautocar.client2")
+                if ($shouldOpenScannerTecnico) {
+                    Open-YouAutoCarScannerTecnico -DeviceId $resolvedDeviceId
+                    $report.android.scanner_tecnico_opened = $true
+                }
             }
         }
 
@@ -321,6 +337,9 @@ try {
             $report.android.scanner_card_present = $uiRaw -match 'Scanner Tecnico|Scanner Técnico'
             $report.android.scanner_button_present = $uiRaw -match 'Abrir Scanner Tecnico|Abrir Scanner Técnico'
             $report.android.live_sensor_summary_present = ($uiRaw -match 'RPM') -and ($uiRaw -match 'Batt') -and ($uiRaw -match 'MAP')
+            $report.android.scanner_session_present = $uiRaw -match 'Sessao|Sessão'
+            $report.android.scanner_live_read_present = $uiRaw -match 'Leitura ativa'
+            $report.android.scanner_persistence_present = $uiRaw -match 'Persistencia|Persistência'
         }
 
         if (-not $KeepAppRunning) {
@@ -363,6 +382,8 @@ try {
 
     if ($SkipPhone) {
         $report.verdict = "SIMULATOR_ONLY"
+    } elseif ($report.android.scanner_tecnico_opened -and $report.android.scanner_live_read_present -and $report.android.scanner_session_present) {
+        $report.verdict = "PASS"
     } elseif ($report.android.live_sensor_summary_present -and $report.android.navigated_to_diagnostics) {
         $report.verdict = "PASS"
     } elseif ($report.logcat.success_count -gt 0 -and $report.logcat.error_count -eq 0) {

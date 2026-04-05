@@ -65,6 +65,36 @@ function Get-YouObdApiCredentialDefaults {
     return $defaults
 }
 
+function Resolve-YouObdSimulatorBaseUrl {
+    param([string]$BaseUrl)
+
+    if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+        throw "BaseUrl do simulador nao informada."
+    }
+
+    $candidates = New-Object System.Collections.Generic.List[string]
+    $normalized = $BaseUrl.TrimEnd("/")
+    $candidates.Add($normalized)
+
+    foreach ($fallback in @("http://youobd2.local", "http://192.168.1.11")) {
+        $normalizedFallback = $fallback.TrimEnd("/")
+        if (-not $candidates.Contains($normalizedFallback)) {
+            $candidates.Add($normalizedFallback)
+        }
+    }
+
+    foreach ($candidate in $candidates) {
+        try {
+            Invoke-YouObdApiRaw -BaseUrl $candidate -Path "/ping-json" -AllowUnauthenticated | Out-Null
+            return $candidate
+        }
+        catch {
+        }
+    }
+
+    throw "Nao foi possivel alcançar o simulador por nenhum endpoint conhecido."
+}
+
 function New-YouObdArtifactDir {
     param(
         [string]$Prefix = "you-obd-lab",
@@ -474,6 +504,19 @@ function Invoke-YouObdTap {
     Invoke-YouObdAdb -DeviceId $DeviceId -Arguments @("shell", "input", "tap", "$X", "$Y") | Out-Null
 }
 
+function Invoke-YouObdSwipe {
+    param(
+        [string]$DeviceId,
+        [int]$X1,
+        [int]$Y1,
+        [int]$X2,
+        [int]$Y2,
+        [int]$DurationMs = 350
+    )
+
+    Invoke-YouObdAdb -DeviceId $DeviceId -Arguments @("shell", "input", "swipe", "$X1", "$Y1", "$X2", "$Y2", "$DurationMs") | Out-Null
+}
+
 function Open-YouAutoCarDiagnosticsTab {
     param([string]$DeviceId)
 
@@ -633,4 +676,56 @@ function Open-YouAutoCarDiagnosticsTab {
     $center = Get-YouObdBoundsCenter -Bounds $node.Bounds
     Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
     Start-Sleep -Seconds 3
+}
+
+function Open-YouAutoCarScannerTecnico {
+    param([string]$DeviceId)
+
+    $readyNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Auto-conectado|ECU Pronta|Scanner ao vivo conectado|OBDLink MX\\+" -TimeoutSeconds 18 -PollMilliseconds 900
+    if ($null -eq $readyNode) {
+        Start-Sleep -Seconds 4
+    }
+
+    $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico" -TimeoutSeconds 8 -PollMilliseconds 700
+    if ($null -eq $node) {
+        $size = Get-YouObdDisplaySize -DeviceId $DeviceId
+        Invoke-YouObdTap -DeviceId $DeviceId -X ([int]($size.Width * 0.82)) -Y ([int]($size.Height * 0.07))
+        Start-Sleep -Seconds 2
+        $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 6 -PollMilliseconds 700
+        if ($null -ne $node) {
+            return
+        }
+
+        Invoke-YouObdSwipe -DeviceId $DeviceId -X1 ([int]($size.Width * 0.5)) -Y1 ([int]($size.Height * 0.78)) -X2 ([int]($size.Width * 0.5)) -Y2 ([int]($size.Height * 0.48)) -DurationMs 300
+        Start-Sleep -Seconds 1
+
+        $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico" -TimeoutSeconds 5 -PollMilliseconds 700
+        if ($null -eq $node) {
+            Invoke-YouObdTap -DeviceId $DeviceId -X ([int]($size.Width * 0.5)) -Y ([int]($size.Height * 0.42))
+            Start-Sleep -Seconds 2
+        } else {
+            $center = Get-YouObdBoundsCenter -Bounds $node.Bounds
+            Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+            Start-Sleep -Seconds 3
+        }
+    }
+    else {
+        $center = Get-YouObdBoundsCenter -Bounds $node.Bounds
+        Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+        Start-Sleep -Seconds 4
+    }
+
+    $scannerNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 12 -PollMilliseconds 800
+    if ($null -eq $scannerNode) {
+        $retryNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico" -TimeoutSeconds 4 -PollMilliseconds 700
+        if ($null -ne $retryNode) {
+            $retryCenter = Get-YouObdBoundsCenter -Bounds $retryNode.Bounds
+            Invoke-YouObdTap -DeviceId $DeviceId -X $retryCenter.X -Y $retryCenter.Y
+            Start-Sleep -Seconds 4
+            $scannerNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 12 -PollMilliseconds 800
+        }
+    }
+    if ($null -eq $scannerNode) {
+        throw "O Scanner Tecnico nao abriu corretamente."
+    }
 }
