@@ -251,12 +251,12 @@ try {
     $dtcsBefore = Get-Content -LiteralPath $dtcsBeforePath -Raw | ConvertFrom-Json
 
     $report.oracle.before = [ordered]@{
-        protocol = $statusBefore.protocol
-        profile_id = $statusBefore.profile_id
-        sim_mode = $statusBefore.sim_mode
-        dtcs_total = $diagBefore.dtcs_total
-        active_scenario = $diagBefore.active_scenario
-        dtcs = @($dtcsBefore.dtcs)
+        protocol = Get-YouObdObjectValue -Object $statusBefore -Name "protocol" -Default ""
+        profile_id = Get-YouObdObjectValue -Object $statusBefore -Name "profile_id" -Default ""
+        sim_mode = Get-YouObdObjectValue -Object $statusBefore -Name "sim_mode" -Default ""
+        dtcs_total = Get-YouObdObjectValue -Object $diagBefore -Name "dtcs_total" -Default ""
+        active_scenario = Get-YouObdObjectValue -Object $diagBefore -Name "active_scenario" -Default ""
+        dtcs = @((Get-YouObdObjectValue -Object $dtcsBefore -Name "dtcs" -Default @()))
     }
 
     if (-not $SkipPhone) {
@@ -306,12 +306,12 @@ try {
     $dtcsAfter = Get-Content -LiteralPath $dtcsAfterPath -Raw | ConvertFrom-Json
 
     $report.oracle.after = [ordered]@{
-        protocol = $statusAfter.protocol
-        profile_id = $statusAfter.profile_id
-        sim_mode = $statusAfter.sim_mode
-        dtcs_total = $diagAfter.dtcs_total
-        active_scenario = $diagAfter.active_scenario
-        dtcs = @($dtcsAfter.dtcs)
+        protocol = Get-YouObdObjectValue -Object $statusAfter -Name "protocol" -Default ""
+        profile_id = Get-YouObdObjectValue -Object $statusAfter -Name "profile_id" -Default ""
+        sim_mode = Get-YouObdObjectValue -Object $statusAfter -Name "sim_mode" -Default ""
+        dtcs_total = Get-YouObdObjectValue -Object $diagAfter -Name "dtcs_total" -Default ""
+        active_scenario = Get-YouObdObjectValue -Object $diagAfter -Name "active_scenario" -Default ""
+        dtcs = @((Get-YouObdObjectValue -Object $dtcsAfter -Name "dtcs" -Default @()))
     }
 
     if (-not $SkipPhone -and (Test-Path -LiteralPath $logcatPath)) {

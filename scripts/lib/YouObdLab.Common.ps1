@@ -78,7 +78,7 @@ function Invoke-YouObdApiRaw {
     $normalizedPath = if ($Path.StartsWith("/")) { $Path } else { "/$Path" }
     $url = "$normalizedBase$normalizedPath"
 
-    $args = @("--silent", "--show-error", "--location", "--max-time", "20")
+    $args = @("--silent", "--show-error", "--fail-with-body", "--location", "--max-time", "20")
     if (-not $AllowUnauthenticated) {
         if ([string]::IsNullOrWhiteSpace($User) -or [string]::IsNullOrWhiteSpace($Password)) {
             throw "Credenciais da API nao informadas para $url."
@@ -102,7 +102,12 @@ function Invoke-YouObdApiRaw {
         throw "Falha consultando $url (exit $($result.ExitCode)): $joined"
     }
 
-    return (($result.Output -join "`n").Trim())
+    $text = (($result.Output -join "`n").Trim())
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        throw "Resposta vazia recebida de $url."
+    }
+
+    return $text
 }
 
 function Invoke-YouObdApiJson {
@@ -139,6 +144,25 @@ function Save-YouObdApiPayload {
     $raw = Invoke-YouObdApiRaw -BaseUrl $BaseUrl -Path $Path -Method $Method -BodyJson $BodyJson -User $User -Password $Password -AllowUnauthenticated:$AllowUnauthenticated
     $raw | Out-File -FilePath $TargetPath -Encoding utf8
     return $raw
+}
+
+function Get-YouObdObjectValue {
+    param(
+        $Object,
+        [string]$Name,
+        $Default = $null
+    )
+
+    if ($null -eq $Object) {
+        return $Default
+    }
+
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        return $Default
+    }
+
+    return $property.Value
 }
 
 function Get-YouObdAuthorizedDevices {
@@ -320,4 +344,3 @@ function Select-YouObdLogMatches {
 
     return @($matches)
 }
-

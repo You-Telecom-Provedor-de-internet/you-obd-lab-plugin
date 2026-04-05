@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 - 2026-04-05
+
+- endurece as chamadas de API com `--fail-with-body`
+- trata resposta vazia e erro `401` como falha clara de autenticacao
+- evita quebra por campos ausentes no relatorio com `StrictMode`
+
 ## 0.3.0 - 2026-04-05
 
 - adiciona biblioteca comum para `adb` e API do simulador
