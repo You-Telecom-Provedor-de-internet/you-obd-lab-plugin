@@ -1,36 +1,68 @@
 # YOU OBD Lab Plugin
 
-Workspace fonte do plugin local do Codex para trabalhar com o ecossistema YOU em bancada:
+![YOU OBD Lab](assets/app-icon.svg)
+
+Plugin local do Codex para transformar o ecossistema YOU em um laboratorio de validacao integrado:
 
 - `YouSimuladorOBD`
 - `YouAutoCarvAPP2`
 - celular Android real via `ADB`
 - adaptadores `ELM327` e `OBDLink`
 
-## Objetivo
+## O que ele resolve
 
-Este plugin existe para ajudar o Codex a:
+O plugin ajuda o Codex a:
 
 - preparar cenarios no simulador via API
 - validar comportamento real via OBD
 - acompanhar o app Android no celular
 - comparar `API do simulador`, `OBD real` e `UI/logs do app`
+- registrar evidencias de bancada
 
-Em outras palavras, ele transforma o Codex em um laboratorio de validacao do ecossistema.
+Em outras palavras, ele tira o fluxo do modo "depende da memoria" e coloca em um laboratorio repetivel.
+
+## Modelo de validacao
+
+O plugin trabalha com tres verdades:
+
+1. `API do simulador`
+2. `OBD real`
+3. `ADB/logcat/screenshots`
+
+Interpretacao:
+
+- `API` diz o que o simulador acredita que esta acontecendo
+- `OBD` diz o que um scanner/app real realmente viu
+- `ADB/logcat` diz o que o app Android exibiu e como ele se comportou
+
+```mermaid
+flowchart LR
+    A["Codex + YOU OBD Lab"] --> B["API do simulador"]
+    A --> C["OBD real"]
+    A --> D["ADB / logcat / screenshots"]
+    B --> E["Oracle interno"]
+    C --> F["Compatibilidade real"]
+    D --> G["Comportamento do app"]
+```
+
+## Repositorios relacionados
+
+- `C:\www\YouSimuladorOBD`
+- `C:\www\YouAutoCarvAPP2`
 
 ## Workspace fonte
 
-Este workspace agora e a fonte de verdade do plugin:
+Este workspace e a fonte de verdade do plugin:
 
 - `C:\www\you-obd-lab-plugin`
 
-## Localizacao ativa no Codex
+## Instalacao ativa no Codex
 
-Nesta maquina, a instalacao ativa do plugin esta em:
+Nesta maquina, a instalacao ativa do plugin fica em:
 
 - `C:\Users\haise\.codex\.tmp\plugins\plugins\you-obd-lab`
 
-O marketplace lido pela interface do Codex esta em:
+Marketplace lido pela interface do Codex:
 
 - `C:\Users\haise\.codex\.tmp\plugins\.agents\plugins\marketplace.json`
 
@@ -38,16 +70,10 @@ O marketplace lido pela interface do Codex esta em:
 
 - `.codex-plugin/plugin.json`
 - `CHANGELOG.md`
-- `assets/you-obd-lab-small.svg`
-- `assets/app-icon.svg`
-- `scripts\sync-to-codex.ps1`
-- `scripts\sync-from-codex.ps1`
-- `scripts/collect-you-obd-lab-snapshot.ps1`
-- `scripts/watch-you-obd-status.ps1`
-- `skills/you-obd-android-lab/SKILL.md`
-- `skills/you-obd-android-lab/references/repo-map.md`
-- `skills/you-obd-android-lab/references/api-oracle.md`
-- `skills/you-obd-android-lab/references/validation-playbook.md`
+- `WORKSPACE.md`
+- `assets/`
+- `scripts/`
+- `skills/you-obd-android-lab/`
 
 ## Skill principal
 
@@ -55,36 +81,14 @@ O plugin expoe a skill:
 
 - `you-obd-android-lab`
 
-Ela foi feita para tarefas que cruzam:
+Use quando a tarefa cruza firmware, API, OBD real e Android.
 
-- `C:\www\YouSimuladorOBD`
-- `C:\www\YouAutoCarvAPP2`
-
-## Como usar
-
-Exemplos de prompts:
+## Exemplos de prompts
 
 - `Use $you-obd-android-lab para validar o simulador com o app Android e o celular real`
 - `Compare API, OBD real e UI do app em um teste de regressao`
 - `Prepare um cenario no simulador e valide o fluxo no YouAutoCarvAPP2`
-
-## Modelo mental
-
-O plugin trabalha com tres verdades:
-
-1. `API do simulador` = plano de controle e oracle interno
-2. `OBD real` = compatibilidade real com scanner/app
-3. `ADB/logcat/screenshots` = o que o app Android exibiu
-
-## Quando usar
-
-Use este plugin quando a tarefa envolver pelo menos um destes casos:
-
-- validar protocolo `CAN`, `ISO 9141-2`, `KWP 5-baud` ou `KWP Fast`
-- preparar perfis, modos, cenarios e DTCs no simulador
-- testar o `YouAutoCarvAPP2` com adaptador real
-- comparar dados da API com o que veio pela ECU simulada
-- coletar evidencias em bancada
+- `Verifique se a tela do app bate com o freeze frame entregue pela ECU simulada`
 
 ## Scripts uteis
 
@@ -100,17 +104,26 @@ Trazer de volta o plugin ativo do Codex para o workspace:
 powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\sync-from-codex.ps1"
 ```
 
-Snapshot completo de bancada:
+Gerar snapshot completo da bancada:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\Users\haise\.codex\.tmp\plugins\plugins\you-obd-lab\scripts\collect-you-obd-lab-snapshot.ps1"
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\collect-you-obd-lab-snapshot.ps1"
 ```
 
-Monitor de status da API:
+Monitorar o status da API em loop:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\Users\haise\.codex\.tmp\plugins\plugins\you-obd-lab\scripts\watch-you-obd-status.ps1"
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\watch-you-obd-status.ps1"
 ```
+
+## Fluxo recomendado de manutencao
+
+1. editar o plugin em `C:\www\you-obd-lab-plugin`
+2. rodar `sync-to-codex.ps1`
+3. reabrir o Codex se necessario
+4. validar o comportamento do plugin na UI
+
+Assim o plugin deixa de ficar preso apenas ao diretorio interno do Codex.
 
 ## Troubleshooting
 
@@ -118,19 +131,11 @@ Se o plugin nao aparecer na interface:
 
 1. confirme se `you-obd-lab` existe em `C:\Users\haise\.codex\.tmp\plugins\plugins\`
 2. confirme se ele esta listado em `C:\Users\haise\.codex\.tmp\plugins\.agents\plugins\marketplace.json`
-3. feche e abra o Codex novamente
+3. rode `sync-to-codex.ps1`
+4. feche e abra o Codex novamente
 
-## Relacao com o projeto
+## Documentacao relacionada
 
-O plugin e local ao ambiente Codex. A documentacao de uso no projeto esta em:
-
-- `C:\www\YouSimuladorOBD\docs\18-codex-plugin-you-obd-lab.md`
-
-## Fluxo recomendado de manutencao
-
-1. editar o plugin em `C:\www\you-obd-lab-plugin`
-2. rodar `sync-to-codex.ps1`
-3. reabrir o Codex se necessario
-4. validar o comportamento do plugin
-
-Assim o plugin deixa de ficar "preso" so no diretorio interno do Codex.
+- documentacao operacional no projeto: `C:\www\YouSimuladorOBD\docs\18-codex-plugin-you-obd-lab.md`
+- changelog do plugin: [CHANGELOG.md](CHANGELOG.md)
+- notas do workspace: [WORKSPACE.md](WORKSPACE.md)
