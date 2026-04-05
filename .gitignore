@@ -1,0 +1,4 @@
+.codex-sync-log.txt
+snapshot-output/
+*.tmp
+*.log

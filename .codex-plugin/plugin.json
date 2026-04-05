@@ -1,0 +1,45 @@
+{
+  "name": "you-obd-lab",
+  "version": "0.2.0",
+  "description": "Plugin local para validar o simulador OBD, o app Android e o celular real no ecossistema YOU.",
+  "author": {
+    "name": "YOU OBD Lab",
+    "email": "local@youobdlab.invalid",
+    "url": "https://github.com/You-Telecom-Provedor-de-internet/YouSimuladorOBD"
+  },
+  "homepage": "https://github.com/You-Telecom-Provedor-de-internet/YouSimuladorOBD",
+  "repository": "https://github.com/You-Telecom-Provedor-de-internet/YouSimuladorOBD",
+  "license": "Proprietary",
+  "keywords": [
+    "obd",
+    "android",
+    "esp32",
+    "adb",
+    "validation"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "YOU OBD Lab",
+    "shortDescription": "Valida simulador OBD, app Android e celular real.",
+    "longDescription": "Plugin local do ecossistema YOU para trabalhar com o YouSimuladorOBD e o YouAutoCarvAPP2 usando API do simulador, OBD real, adaptadores ELM327/OBDLink e validacao no celular via ADB.",
+    "developerName": "YOU OBD Lab",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write",
+      "Validate"
+    ],
+    "websiteURL": "https://github.com/You-Telecom-Provedor-de-internet/YouSimuladorOBD",
+    "privacyPolicyURL": "https://github.com/You-Telecom-Provedor-de-internet/YouSimuladorOBD",
+    "termsOfServiceURL": "https://github.com/You-Telecom-Provedor-de-internet/YouSimuladorOBD",
+    "defaultPrompt": [
+      "Use $you-obd-android-lab para validar o simulador com o app Android e o celular real.",
+      "Compare API, OBD real e UI do app em um teste de regressao.",
+      "Prepare um cenario no simulador e valide o fluxo no YouAutoCarvAPP2."
+    ],
+    "brandColor": "#14C8FF",
+    "composerIcon": "./assets/you-obd-lab-small.svg",
+    "logo": "./assets/app-icon.svg",
+    "screenshots": []
+  }
+}

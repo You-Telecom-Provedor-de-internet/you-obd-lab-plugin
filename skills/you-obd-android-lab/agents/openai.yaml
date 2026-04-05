@@ -1,0 +1,4 @@
+interface:
+  display_name: "You OBD Android Lab"
+  short_description: "Valida simulador OBD, app Android e celular real."
+  default_prompt: "Use $you-obd-android-lab para validar o YouSimuladorOBD com o YouAutoCarvAPP2 via API, OBD real e ADB."
