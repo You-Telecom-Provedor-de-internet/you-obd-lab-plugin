@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 - 2026-04-05
+
+- adiciona arquivo `LICENSE` com termos proprietarios e source-available
+- aponta o manifesto do plugin para o repositorio proprio
+- prepara o repositorio para publicacao
+
 ## 0.2.0 - 2026-04-05
 
 - adiciona icones do plugin
