@@ -4,3 +4,4 @@ tmp-*/
 tmp_*/
 *.tmp
 *.log
+scripts/local-api-credentials.json

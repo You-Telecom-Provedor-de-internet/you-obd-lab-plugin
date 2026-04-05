@@ -29,6 +29,42 @@ function Get-YouObdCurlPath {
     throw "curl.exe nao encontrado."
 }
 
+function Get-YouObdApiCredentialDefaults {
+    $defaults = @{
+        User = "api"
+        Password = "obdapi2026"
+        Source = "factory"
+    }
+
+    $localCredentialsPath = Join-Path (Split-Path $PSScriptRoot -Parent) "local-api-credentials.json"
+    if (Test-Path -LiteralPath $localCredentialsPath) {
+        try {
+            $local = Get-Content -LiteralPath $localCredentialsPath -Raw | ConvertFrom-Json
+            $localUser = [string]$local.user
+            $localPassword = [string]$local.password
+            if (-not [string]::IsNullOrWhiteSpace($localUser) -and -not [string]::IsNullOrWhiteSpace($localPassword)) {
+                return @{
+                    User = $localUser
+                    Password = $localPassword
+                    Source = "local-file"
+                }
+            }
+        }
+        catch {
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:YOU_OBD_API_USER) -and -not [string]::IsNullOrWhiteSpace($env:YOU_OBD_API_PASSWORD)) {
+        return @{
+            User = $env:YOU_OBD_API_USER
+            Password = $env:YOU_OBD_API_PASSWORD
+            Source = "environment"
+        }
+    }
+
+    return $defaults
+}
+
 function New-YouObdArtifactDir {
     param(
         [string]$Prefix = "you-obd-lab",

@@ -1,11 +1,17 @@
 param(
     [string]$SimulatorBaseUrl = "http://youobd.local",
-    [string]$User = "api",
-    [string]$Password = "obdapi2026",
+    [string]$User = "",
+    [string]$Password = "",
     [int]$IntervalSeconds = 2
 )
 
 $ErrorActionPreference = "Stop"
+
+. (Join-Path $PSScriptRoot "lib\YouObdLab.Common.ps1")
+
+$apiDefaults = Get-YouObdApiCredentialDefaults
+if ([string]::IsNullOrWhiteSpace($User)) { $User = $apiDefaults.User }
+if ([string]::IsNullOrWhiteSpace($Password)) { $Password = $apiDefaults.Password }
 
 if (-not (Get-Command "curl.exe" -ErrorAction SilentlyContinue)) {
     throw "curl.exe nao encontrado."
@@ -16,7 +22,7 @@ Write-Host "Pressione Ctrl+C para parar."
 
 while ($true) {
     try {
-        $json = & curl.exe --silent --show-error --digest -u "${User}:${Password}" "$SimulatorBaseUrl/api/status"
+        $json = & curl.exe --silent --show-error --basic -u "${User}:${Password}" "$SimulatorBaseUrl/api/status"
         $data = $json | ConvertFrom-Json
         $line = "[{0}] proto={1} profile={2} rpm={3} speed={4} dtcs={5}" -f (
             (Get-Date -Format "HH:mm:ss"),

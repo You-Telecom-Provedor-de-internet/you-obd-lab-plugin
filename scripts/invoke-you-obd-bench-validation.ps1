@@ -1,7 +1,7 @@
 param(
     [string]$SimulatorBaseUrl = "http://192.168.1.11",
-    [string]$User = "api",
-    [string]$Password = "obdapi2026",
+    [string]$User = "",
+    [string]$Password = "",
     [string]$DeviceId = "",
     [string]$AppPackage = "com.youautocar.client2",
     [string]$ProfileId = "",
@@ -23,6 +23,10 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot "lib\YouObdLab.Common.ps1")
+
+$apiDefaults = Get-YouObdApiCredentialDefaults
+if ([string]::IsNullOrWhiteSpace($User)) { $User = $apiDefaults.User }
+if ([string]::IsNullOrWhiteSpace($Password)) { $Password = $apiDefaults.Password }
 
 $outputDir = New-YouObdArtifactDir -Prefix "you-obd-bench" -OutputDir $OutputDir
 $reportJsonPath = Join-Path $outputDir "report.json"

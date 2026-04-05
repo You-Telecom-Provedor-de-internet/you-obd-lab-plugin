@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.4 - 2026-04-05
+
+- permite arquivo local `scripts/local-api-credentials.json` fora do Git
+- passa a resolver credenciais depois do carregamento da biblioteca comum
+- atualiza `watch-you-obd-status.ps1` para `Basic` e mesmo fluxo dos outros scripts
+
+## 0.3.3 - 2026-04-05
+
+- permite que os scripts leiam `YOU_OBD_API_USER` e `YOU_OBD_API_PASSWORD`
+- permite arquivo local `scripts/local-api-credentials.json` fora do Git
+- prepara o plugin para credenciais fortes locais sem expor segredo no repositório
+
 ## 0.3.2 - 2026-04-05
 
 - alinha os scripts para usar autenticacao `Basic` na API do simulador

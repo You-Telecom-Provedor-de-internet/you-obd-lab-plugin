@@ -14,6 +14,21 @@ Credencial dedicada padrao da API do simulador para automacao:
 - usuario: `api`
 - senha: `obdapi2026`
 
+Para ambiente local com credenciais mais fortes, os scripts tambem aceitam:
+
+- `YOU_OBD_API_USER`
+- `YOU_OBD_API_PASSWORD`
+- `scripts/local-api-credentials.json`
+
+Formato do arquivo local:
+
+```json
+{
+  "user": "youapi",
+  "password": "sua-senha-forte"
+}
+```
+
 ## O que ele resolve
 
 O plugin ajuda o Codex a:
