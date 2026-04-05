@@ -1,7 +1,7 @@
 param(
     [string]$SimulatorBaseUrl = "http://192.168.1.11",
-    [string]$User = "admin",
-    [string]$Password = "obd12345",
+    [string]$User = "api",
+    [string]$Password = "obdapi2026",
     [string]$AppPackage = "com.youautocar.client2",
     [string]$OutputDir = ""
 )

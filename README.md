@@ -9,6 +9,11 @@ Plugin local do Codex para transformar o ecossistema YOU em um laboratorio de va
 - celular Android real via `ADB`
 - adaptadores `ELM327` e `OBDLink`
 
+Credencial dedicada padrao da API do simulador para automacao:
+
+- usuario: `api`
+- senha: `obdapi2026`
+
 ## O que ele resolve
 
 O plugin ajuda o Codex a:

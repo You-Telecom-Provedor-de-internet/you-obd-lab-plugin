@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2 - 2026-04-05
+
+- alinha os scripts para usar autenticacao `Basic` na API do simulador
+- atualiza os defaults dos runners para o usuario dedicado `api`
+- endurece a execucao externa no Windows para `adb` e `curl`
+- corrige a filtragem de logcat no runner de bancada
+
 ## 0.3.1 - 2026-04-05
 
 - endurece as chamadas de API com `--fail-with-body`

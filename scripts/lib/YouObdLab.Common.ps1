@@ -50,8 +50,24 @@ function Invoke-YouObdExternal {
         [string[]]$Arguments
     )
 
-    $output = & $FilePath @Arguments 2>&1
-    $exitCode = $LASTEXITCODE
+    $stdoutPath = [System.IO.Path]::GetTempFileName()
+    $stderrPath = [System.IO.Path]::GetTempFileName()
+    try {
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -NoNewWindow -Wait -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        $output = @()
+        if (Test-Path -LiteralPath $stdoutPath) {
+            $stdout = Get-Content -LiteralPath $stdoutPath -ErrorAction SilentlyContinue
+            if ($stdout) { $output += $stdout }
+        }
+        if (Test-Path -LiteralPath $stderrPath) {
+            $stderr = Get-Content -LiteralPath $stderrPath -ErrorAction SilentlyContinue
+            if ($stderr) { $output += $stderr }
+        }
+        $exitCode = $process.ExitCode
+    }
+    finally {
+        Remove-Item -LiteralPath $stdoutPath, $stderrPath -ErrorAction SilentlyContinue
+    }
     return @{
         Output = @($output)
         ExitCode = $exitCode
@@ -83,7 +99,7 @@ function Invoke-YouObdApiRaw {
         if ([string]::IsNullOrWhiteSpace($User) -or [string]::IsNullOrWhiteSpace($Password)) {
             throw "Credenciais da API nao informadas para $url."
         }
-        $args += @("--digest", "-u", "${User}:${Password}")
+        $args += @("--basic", "-u", "${User}:${Password}")
     }
 
     $methodUpper = $Method.ToUpperInvariant()
@@ -342,5 +358,5 @@ function Select-YouObdLogMatches {
         }
     }
 
-    return @($matches)
+    return @($matches.ToArray())
 }

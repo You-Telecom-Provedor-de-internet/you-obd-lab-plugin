@@ -1,7 +1,7 @@
 param(
     [string]$SimulatorBaseUrl = "http://youobd.local",
-    [string]$User = "admin",
-    [string]$Password = "obd12345",
+    [string]$User = "api",
+    [string]$Password = "obdapi2026",
     [int]$IntervalSeconds = 2
 )
 

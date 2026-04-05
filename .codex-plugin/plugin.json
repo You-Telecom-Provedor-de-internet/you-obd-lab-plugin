@@ -1,6 +1,6 @@
 {
   "name": "you-obd-lab",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Plugin local para validar o simulador OBD, o app Android e o celular real no ecossistema YOU.",
   "author": {
     "name": "YOU OBD Lab",
