@@ -116,12 +116,55 @@ Monitorar o status da API em loop:
 powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\watch-you-obd-status.ps1"
 ```
 
+Rodar uma validacao de bancada completa com simulador + Android + relatorio:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-obd-bench-validation.ps1" `
+  -SimulatorBaseUrl "http://192.168.1.11" `
+  -ProfileId "peugeot_308_16thp" `
+  -ModeId 2 `
+  -ScenarioId "superaquecimento" `
+  -DtcCodes "P0300","P0420"
+```
+
+Isso gera:
+
+- `report.md`
+- `report.json`
+- `api-status-before/after`
+- `api-diagnostics-before/after`
+- screenshot do celular
+- logcat bruto e filtrado
+- inventario do device via `adb`
+
 ## Fluxo recomendado de manutencao
 
 1. editar o plugin em `C:\www\you-obd-lab-plugin`
 2. rodar `sync-to-codex.ps1`
 3. reabrir o Codex se necessario
 4. validar o comportamento do plugin na UI
+
+## Automacao de teste
+
+O fluxo recomendado para testes reais agora e:
+
+1. preparar o simulador por API
+2. opcionalmente aplicar `profile`, `mode`, `scenario` e `dtcs`
+3. abrir o app Android no celular
+4. capturar `status`, `diagnostics`, screenshot e logcat
+5. gerar um relatorio unico em Markdown/JSON
+
+O script `invoke-you-obd-bench-validation.ps1` faz isso em uma passada.
+
+Para validar o app em emulador reaproveitando o fluxo oficial do `YouAutoCarvAPP2`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-autocar-emulator-validation.ps1" `
+  -Route /profile/settings `
+  -ExpectedText "Configuracoes","Versao em execucao:" `
+  -ScrollCount 4 `
+  -StopExistingFlutterProcesses
+```
 
 Assim o plugin deixa de ficar preso apenas ao diretorio interno do Codex.
 

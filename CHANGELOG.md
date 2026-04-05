@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 - 2026-04-05
+
+- adiciona biblioteca comum para `adb` e API do simulador
+- adiciona `invoke-you-obd-bench-validation.ps1` para validacao de bancada com relatorio em Markdown/JSON
+- adiciona `invoke-you-autocar-emulator-validation.ps1` para encapsular a validacao mobile oficial do app
+- atualiza o snapshot para reaproveitar a biblioteca comum
+- documenta o novo fluxo de automacao de teste no plugin
+
 ## 0.2.1 - 2026-04-05
 
 - adiciona arquivo `LICENSE` com termos proprietarios e source-available
