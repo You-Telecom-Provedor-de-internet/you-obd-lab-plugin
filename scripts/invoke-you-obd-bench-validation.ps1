@@ -14,6 +14,7 @@ param(
     [switch]$SkipPhone,
     [switch]$SkipAppLaunch,
     [switch]$KeepAppRunning,
+    [switch]$NavigateToDiagnostics,
     [switch]$DryRun,
     [int]$WarmupSeconds = 10,
     [int]$LogcatLines = 1000,
@@ -44,6 +45,7 @@ $pingPath = Join-Path $outputDir "ping-json.json"
 $logcatPath = Join-Path $outputDir "phone-logcat.txt"
 $filteredLogPath = Join-Path $outputDir "phone-logcat-filtered.txt"
 $screenPath = Join-Path $outputDir "phone-screen.png"
+$uiDumpPath = Join-Path $outputDir "phone-ui.xml"
 
 $successPatterns = @(
     "ECU_READY",
@@ -120,6 +122,11 @@ function Write-ReportArtifacts {
     $lines += ""
     $lines += "- app_installed: $($Report.android.app_installed)"
     $lines += "- launched: $($Report.android.launched)"
+    $lines += "- navigated_to_diagnostics: $($Report.android.navigated_to_diagnostics)"
+    $lines += "- diagnostics_tab_detected: $($Report.android.diagnostics_tab_detected)"
+    $lines += "- scanner_card_present: $($Report.android.scanner_card_present)"
+    $lines += "- scanner_button_present: $($Report.android.scanner_button_present)"
+    $lines += "- live_sensor_summary_present: $($Report.android.live_sensor_summary_present)"
     $lines += "- version_name: $($Report.android.version_name)"
     $lines += "- version_code: $($Report.android.version_code)"
     $lines += ""
@@ -189,6 +196,11 @@ $report = [ordered]@{
     android = [ordered]@{
         app_installed = $false
         launched = $false
+        navigated_to_diagnostics = $false
+        diagnostics_tab_detected = $false
+        scanner_card_present = $false
+        scanner_button_present = $false
+        live_sensor_summary_present = $false
         version_name = ""
         version_code = ""
     }
@@ -268,7 +280,7 @@ try {
         $report.setup.device_id = $resolvedDeviceId
 
         @(Get-YouObdAuthorizedDevices) | ForEach-Object { $_.Raw } | Out-File -FilePath $adbDevicesPath -Encoding utf8
-        $report.artifacts += @($adbDevicesPath, $devicePropsPath, $packageInfoPath, $screenPath, $logcatPath, $filteredLogPath)
+        $report.artifacts += @($adbDevicesPath, $devicePropsPath, $packageInfoPath, $screenPath, $uiDumpPath, $logcatPath, $filteredLogPath)
 
         Save-YouObdDeviceProps -DeviceId $resolvedDeviceId -TargetPath $devicePropsPath
         $packageInfo = Get-YouObdPackageInfo -DeviceId $resolvedDeviceId -PackageName $AppPackage
@@ -287,6 +299,12 @@ try {
         if (-not $SkipAppLaunch) {
             Start-YouObdApp -DeviceId $resolvedDeviceId -PackageName $AppPackage
             $report.android.launched = $true
+
+            $shouldNavigateToDiagnostics = $NavigateToDiagnostics.IsPresent -or ($AppPackage -eq "com.youautocar.client2")
+            if ($shouldNavigateToDiagnostics) {
+                Open-YouAutoCarDiagnosticsTab -DeviceId $resolvedDeviceId
+                $report.android.navigated_to_diagnostics = $true
+            }
         }
 
         if (-not $DryRun) {
@@ -294,7 +312,16 @@ try {
         }
 
         Save-YouObdScreenshot -DeviceId $resolvedDeviceId -TargetPath $screenPath
+        Save-YouObdUiDump -DeviceId $resolvedDeviceId -TargetPath $uiDumpPath
         Save-YouObdLogcat -DeviceId $resolvedDeviceId -TargetPath $logcatPath -Lines $LogcatLines
+
+        if (Test-Path -LiteralPath $uiDumpPath) {
+            $uiRaw = Get-Content -LiteralPath $uiDumpPath -Raw -Encoding utf8
+            $report.android.diagnostics_tab_detected = $uiRaw -match 'Diagnostico|Diagnóstico'
+            $report.android.scanner_card_present = $uiRaw -match 'Scanner Tecnico|Scanner Técnico'
+            $report.android.scanner_button_present = $uiRaw -match 'Abrir Scanner Tecnico|Abrir Scanner Técnico'
+            $report.android.live_sensor_summary_present = ($uiRaw -match 'RPM') -and ($uiRaw -match 'Batt') -and ($uiRaw -match 'MAP')
+        }
 
         if (-not $KeepAppRunning) {
             Stop-YouObdApp -DeviceId $resolvedDeviceId -PackageName $AppPackage
@@ -336,6 +363,8 @@ try {
 
     if ($SkipPhone) {
         $report.verdict = "SIMULATOR_ONLY"
+    } elseif ($report.android.live_sensor_summary_present -and $report.android.navigated_to_diagnostics) {
+        $report.verdict = "PASS"
     } elseif ($report.logcat.success_count -gt 0 -and $report.logcat.error_count -eq 0) {
         $report.verdict = "PASS"
     } elseif ($report.logcat.success_count -gt 0 -and $report.logcat.error_count -gt 0) {
