@@ -1,0 +1,4 @@
+interface:
+  display_name: "You Orchestrator"
+  short_description: "Coordena contratos e impacto cruzado no ecossistema YOU."
+  default_prompt: "Use $you-orchestrator para coordenar tarefas entre YouAutoCarvAPP2, YouSimuladorOBD, plugin, Android e bancada."

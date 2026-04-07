@@ -2,12 +2,14 @@
 
 ![YOU OBD Lab](assets/app-icon.svg)
 
-Plugin local do Codex para transformar o ecossistema YOU em um laboratorio de validacao integrado:
+Plugin local do Codex para transformar o ecossistema YOU em um laboratorio de validacao integrado e, agora, em um hub multi-skill para:
 
 - `YouSimuladorOBD`
 - `YouAutoCarvAPP2`
+- `firmware/YouAutoTester`
 - celular Android real via `ADB`
 - adaptadores `ELM327` e `OBDLink`
+- gateway BLE e hardware de bancada
 
 Credencial dedicada padrao da API do simulador para automacao:
 
@@ -36,14 +38,38 @@ O plugin ajuda o Codex a:
 - preparar cenarios no simulador via API
 - validar comportamento real via OBD
 - acompanhar o app Android no celular
+- trabalhar no `firmware/YouAutoTester` com foco de laboratorio
 - comparar `API do simulador`, `OBD real` e `UI/logs do app`
+- revisar regressao, riscos e contratos entre projetos
 - registrar evidencias de bancada
 
-Em outras palavras, ele tira o fluxo do modo "depende da memoria" e coloca em um laboratorio repetivel.
+Em outras palavras, ele tira o fluxo do modo "depende da memoria" e coloca em um laboratorio repetivel, com skills especializadas por dominio.
+
+## Arquitetura multi-skill
+
+O plugin continua com a skill transversal original e agora funciona como um hub com especializacao por dominio:
+
+- `you-obd-android-lab`
+  Skill ampla do laboratorio. Use quando a tarefa cruza simulador, Android, celular real e adaptadores OBD.
+- `you-orchestrator`
+  Coordena arquitetura, contratos, payloads JSON, eventos WebSocket e impacto cruzado entre projetos.
+- `youautotester-lab`
+  Especialista em `firmware/YouAutoTester`, `TestResult`, `Reading`, WebUI local, API HTTP local e WebSocket local.
+- `you-android-gateway`
+  Especialista em Android, `ADB`, BLE, Bluetooth, captura do IKRO `IK2029B` e envio de leituras ao `YouAutoTester`.
+- `you-obd-simulator`
+  Especialista em `YouSimuladorOBD`, perfis, modos, cenarios, DTCs e consistencia entre API e fluxo OBD real.
+- `you-reviewer`
+  Especialista em revisao, regressao, contratos, riscos tecnicos e QA transversal.
+
+Espaco futuro:
+
+- `you-web-lab`
+  Mantido como direcao futura para interfaces web do ecossistema, sem implementacao obrigatoria neste momento.
 
 ## Modelo de validacao
 
-O plugin trabalha com tres verdades:
+O laboratorio continua trabalhando com tres verdades:
 
 1. `API do simulador`
 2. `OBD real`
@@ -60,9 +86,11 @@ flowchart LR
     A["Codex + YOU OBD Lab"] --> B["API do simulador"]
     A --> C["OBD real"]
     A --> D["ADB / logcat / screenshots"]
-    B --> E["Oracle interno"]
-    C --> F["Compatibilidade real"]
-    D --> G["Comportamento do app"]
+    A --> E["Skills especializadas"]
+    B --> F["Oracle interno"]
+    C --> G["Compatibilidade real"]
+    D --> H["Comportamento do app"]
+    E --> I["Coordenacao por dominio"]
 ```
 
 ## Repositorios relacionados
@@ -88,27 +116,45 @@ Marketplace lido pela interface do Codex:
 
 ## Estrutura
 
-- `.codex-plugin/plugin.json`
-- `CHANGELOG.md`
-- `WORKSPACE.md`
-- `assets/`
-- `scripts/`
-- `skills/you-obd-android-lab/`
+```text
+you-obd-lab-plugin/
+  .codex-plugin/
+    plugin.json
+  assets/
+  fixtures/
+  scripts/
+  skills/
+    you-obd-android-lab/
+    you-orchestrator/
+    youautotester-lab/
+    you-android-gateway/
+    you-obd-simulator/
+    you-reviewer/
+```
 
-## Skill principal
-
-O plugin expoe a skill:
+## Quando usar cada skill
 
 - `you-obd-android-lab`
-
-Use quando a tarefa cruza firmware, API, OBD real e Android.
+  Quando a tarefa precisa cruzar API do simulador, OBD real, Android e evidencias de bancada.
+- `you-orchestrator`
+  Quando a mudanca cruza mais de um repositorio, altera contratos ou precisa de analise de impacto fim a fim.
+- `youautotester-lab`
+  Quando o foco esta em `firmware/YouAutoTester`, instrumentos, leituras, `TestResult` ou WebUI/API local do tester.
+- `you-android-gateway`
+  Quando o foco esta em Android, `ADB`, BLE, gateway do IKRO ou transporte de leituras para o tester.
+- `you-obd-simulator`
+  Quando o foco esta em perfis, modos, cenarios, DTCs, freeze frame e coerencia do `YouSimuladorOBD`.
+- `you-reviewer`
+  Quando a tarefa principal e revisar risco, regressao, QA ou consistencia entre contratos.
 
 ## Exemplos de prompts
 
 - `Use $you-obd-android-lab para validar o simulador com o app Android e o celular real`
-- `Compare API, OBD real e UI do app em um teste de regressao`
-- `Prepare um cenario no simulador e valide o fluxo no YouAutoCarvAPP2`
-- `Verifique se a tela do app bate com o freeze frame entregue pela ECU simulada`
+- `Use $you-orchestrator para coordenar uma mudanca entre YouAutoCarvAPP2, YouSimuladorOBD e o plugin`
+- `Use $youautotester-lab para trabalhar no firmware/YouAutoTester e na API local de leituras`
+- `Use $you-android-gateway para depurar BLE, ADB e o gateway do IKRO`
+- `Use $you-obd-simulator para montar um cenario com profile, mode, scenario e DTCs`
+- `Use $you-reviewer para revisar regressao, contratos e riscos tecnicos antes do merge`
 
 ## Scripts uteis
 
@@ -166,7 +212,7 @@ Isso gera:
 
 ## Automacao de teste
 
-O fluxo recomendado para testes reais agora e:
+O fluxo recomendado para testes reais continua sendo:
 
 1. preparar o simulador por API
 2. opcionalmente aplicar `profile`, `mode`, `scenario` e `dtcs`
@@ -187,6 +233,12 @@ powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invo
 ```
 
 Assim o plugin deixa de ficar preso apenas ao diretorio interno do Codex.
+
+## Compatibilidade
+
+- A skill `you-obd-android-lab` foi preservada sem remocao.
+- O manifesto continua apontando para `./skills/`, entao a descoberta das novas skills permanece compativel com a estrutura atual do plugin.
+- Nenhuma dependencia pesada nova foi adicionada.
 
 ## Troubleshooting
 

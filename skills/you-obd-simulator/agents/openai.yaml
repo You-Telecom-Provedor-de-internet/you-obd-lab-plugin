@@ -1,0 +1,4 @@
+interface:
+  display_name: "You OBD Simulator"
+  short_description: "Especialista em cenarios e contratos do YouSimuladorOBD."
+  default_prompt: "Use $you-obd-simulator para cenarios, perfis, modos, DTCs e validacao do YouSimuladorOBD."

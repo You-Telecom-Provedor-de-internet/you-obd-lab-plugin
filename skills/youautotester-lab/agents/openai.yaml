@@ -1,0 +1,4 @@
+interface:
+  display_name: "YouAutoTester Lab"
+  short_description: "Especialista no firmware e API do YouAutoTester."
+  default_prompt: "Use $youautotester-lab para trabalhar no firmware/YouAutoTester, WebUI local e fluxos de teste."

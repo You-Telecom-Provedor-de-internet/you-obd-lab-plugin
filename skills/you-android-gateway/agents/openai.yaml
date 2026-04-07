@@ -1,0 +1,4 @@
+interface:
+  display_name: "You Android Gateway"
+  short_description: "Especialista em Android, ADB, BLE e gateway IKRO."
+  default_prompt: "Use $you-android-gateway para Android, ADB, BLE e gateway do IKRO com envio de leituras ao YouAutoTester."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "You Reviewer"
+  short_description: "Revisa regressao, riscos e QA transversal da YOU."
+  default_prompt: "Use $you-reviewer para revisar regressao, contratos, riscos tecnicos e impacto transversal."

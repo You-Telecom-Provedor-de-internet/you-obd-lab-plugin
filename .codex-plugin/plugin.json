@@ -1,7 +1,7 @@
 {
   "name": "you-obd-lab",
   "version": "0.3.4",
-  "description": "Plugin local para validar o simulador OBD, o app Android e o celular real no ecossistema YOU.",
+  "description": "Plugin local multi-skill para validar simulador OBD, app Android, firmware de laboratorio e revisao transversal no ecossistema YOU.",
   "author": {
     "name": "YOU OBD Lab",
     "email": "local@youobdlab.invalid",
@@ -20,8 +20,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "YOU OBD Lab",
-    "shortDescription": "Valida simulador OBD, app Android e celular real.",
-    "longDescription": "Plugin local do ecossistema YOU para trabalhar com o YouSimuladorOBD e o YouAutoCarvAPP2 usando API do simulador, OBD real, adaptadores ELM327/OBDLink e validacao no celular via ADB.",
+    "shortDescription": "Hub multi-skill para simulador, Android e bancada.",
+    "longDescription": "Plugin local multi-skill do ecossistema YOU para trabalhar com YouSimuladorOBD, YouAutoCarvAPP2, firmware YouAutoTester, OBD real, Android via ADB e revisao transversal usando skills especializadas por dominio.",
     "developerName": "YOU OBD Lab",
     "category": "Developer Tools",
     "capabilities": [
@@ -34,8 +34,11 @@
     "termsOfServiceURL": "https://github.com/You-Telecom-Provedor-de-internet/you-obd-lab-plugin",
     "defaultPrompt": [
       "Use $you-obd-android-lab para validar o simulador com o app Android e o celular real.",
-      "Compare API, OBD real e UI do app em um teste de regressao.",
-      "Prepare um cenario no simulador e valide o fluxo no YouAutoCarvAPP2."
+      "Use $you-orchestrator para coordenar tarefas entre YouAutoCarvAPP2, YouSimuladorOBD, plugin e Android.",
+      "Use $youautotester-lab para trabalhar apenas no firmware/YouAutoTester.",
+      "Use $you-android-gateway para Android, BLE, ADB e gateway do IKRO.",
+      "Use $you-obd-simulator para cenarios e validacoes no simulador OBD.",
+      "Use $you-reviewer para revisar regressao, contratos e riscos."
     ],
     "brandColor": "#14C8FF",
     "composerIcon": "./assets/you-obd-lab-small.svg",
