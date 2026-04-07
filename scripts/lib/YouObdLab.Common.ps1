@@ -384,6 +384,7 @@ function Start-YouObdApp {
 
     $activity = Get-YouObdLauncherActivity -DeviceId $DeviceId -PackageName $PackageName
     Invoke-YouObdAdb -DeviceId $DeviceId -Arguments @("shell", "am", "start", "-W", "-n", $activity) | Out-Null
+    Wait-YouObdForegroundPackage -DeviceId $DeviceId -PackageName $PackageName -TimeoutSeconds 10 | Out-Null
 }
 
 function Clear-YouObdLogcat {
@@ -425,6 +426,35 @@ function Get-YouObdPackageInfo {
         VersionName = $versionName
         VersionCode = $versionCode
         Raw = $joined
+    }
+}
+
+function Grant-YouObdRuntimePermissions {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName,
+        [string[]]$Permissions = @(
+            'android.permission.POST_NOTIFICATIONS',
+            'android.permission.BLUETOOTH_CONNECT',
+            'android.permission.BLUETOOTH_SCAN',
+            'android.permission.ACCESS_FINE_LOCATION',
+            'android.permission.ACCESS_COARSE_LOCATION'
+        )
+    )
+
+    foreach ($permission in $Permissions) {
+        try {
+            Invoke-YouObdAdb -DeviceId $DeviceId -Arguments @(
+                'shell',
+                'pm',
+                'grant',
+                $PackageName,
+                $permission
+            ) | Out-Null
+        }
+        catch {
+            # Ignore permissions not requested by this build/device combination.
+        }
     }
 }
 
@@ -655,6 +685,118 @@ function Get-YouObdDisplaySize {
     throw "Nao foi possivel determinar a resolucao da tela do dispositivo."
 }
 
+function Get-YouObdForegroundPackage {
+    param([string]$DeviceId)
+
+    $patterns = @(
+        "mCurrentFocus.+?\s([A-Za-z0-9._$-]+)/[A-Za-z0-9._$-]+",
+        "topResumedActivity.+?\s([A-Za-z0-9._$-]+)/[A-Za-z0-9._$-]+"
+    )
+    $commands = @(
+        @("shell", "dumpsys", "window", "windows"),
+        @("shell", "dumpsys", "activity", "activities")
+    )
+
+    foreach ($arguments in $commands) {
+        $output = Invoke-YouObdAdb -DeviceId $DeviceId -Arguments $arguments
+        foreach ($line in $output) {
+            $text = [string]$line
+            foreach ($pattern in $patterns) {
+                if ($text -match $pattern) {
+                    return $matches[1].Trim()
+                }
+            }
+        }
+    }
+
+    return ""
+}
+
+function Wait-YouObdForegroundPackage {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName,
+        [int]$TimeoutSeconds = 12,
+        [int]$PollMilliseconds = 700
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    do {
+        $foregroundPackage = Get-YouObdForegroundPackage -DeviceId $DeviceId
+        if ($foregroundPackage -eq $PackageName) {
+            return $foregroundPackage
+        }
+        Start-Sleep -Milliseconds $PollMilliseconds
+    } while ((Get-Date) -lt $deadline)
+
+    return ""
+}
+
+function Handle-YouObdPermissionPrompt {
+    param(
+        [string]$DeviceId,
+        [int]$TimeoutSeconds = 8
+    )
+
+    $allowNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern 'Permitir|Allow|Enquanto.*uso|While using|Continuar|OK' -TimeoutSeconds $TimeoutSeconds -PollMilliseconds 600
+    if ($null -eq $allowNode) {
+        return $false
+    }
+
+    $center = Get-YouObdBoundsCenter -Bounds $allowNode.Bounds
+    Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+    Start-Sleep -Seconds 2
+    return $true
+}
+
+function Ensure-YouObdForegroundApp {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName,
+        [int]$MaxAttempts = 3
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $foregroundPackage = Get-YouObdForegroundPackage -DeviceId $DeviceId
+        if ($foregroundPackage -eq $PackageName) {
+            return
+        }
+
+        if ($foregroundPackage -eq "com.android.settings") {
+            Invoke-YouObdAdb -DeviceId $DeviceId -Arguments @("shell", "input", "keyevent", "4") | Out-Null
+            Start-Sleep -Seconds 2
+            $foregroundPackage = Wait-YouObdForegroundPackage -DeviceId $DeviceId -PackageName $PackageName -TimeoutSeconds 4
+            if ($foregroundPackage -eq $PackageName) {
+                return
+            }
+        }
+
+        if ($foregroundPackage -eq "com.google.android.permissioncontroller" -or
+            $foregroundPackage -eq "com.android.permissioncontroller") {
+            if (Handle-YouObdPermissionPrompt -DeviceId $DeviceId) {
+                $foregroundPackage = Wait-YouObdForegroundPackage -DeviceId $DeviceId -PackageName $PackageName -TimeoutSeconds 6
+                if ($foregroundPackage -eq $PackageName) {
+                    return
+                }
+            }
+        }
+
+        Start-YouObdApp -DeviceId $DeviceId -PackageName $PackageName
+        Start-Sleep -Seconds 2
+        $foregroundPackage = Get-YouObdForegroundPackage -DeviceId $DeviceId
+        if ($foregroundPackage -eq "com.google.android.permissioncontroller" -or
+            $foregroundPackage -eq "com.android.permissioncontroller") {
+            Handle-YouObdPermissionPrompt -DeviceId $DeviceId | Out-Null
+        }
+        $foregroundPackage = Wait-YouObdForegroundPackage -DeviceId $DeviceId -PackageName $PackageName -TimeoutSeconds 6
+        if ($foregroundPackage -eq $PackageName) {
+            return
+        }
+    }
+
+    throw "Nao foi possivel colocar $PackageName em primeiro plano no dispositivo."
+}
+
 function Open-YouAutoCarDiagnosticsTab {
     param([string]$DeviceId)
 
@@ -722,6 +864,162 @@ function Open-YouAutoCarScannerTecnico {
             $retryCenter = Get-YouObdBoundsCenter -Bounds $retryNode.Bounds
             Invoke-YouObdTap -DeviceId $DeviceId -X $retryCenter.X -Y $retryCenter.Y
             Start-Sleep -Seconds 4
+            $scannerNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 12 -PollMilliseconds 800
+        }
+    }
+    if ($null -eq $scannerNode) {
+        throw "O Scanner Tecnico nao abriu corretamente."
+    }
+}
+
+function Open-YouAutoCarScannerTecnico {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName = "com.youautocar.client2"
+    )
+
+    $retryAttempts = 0
+    $size = Get-YouObdDisplaySize -DeviceId $DeviceId
+
+    for ($attempt = 1; $attempt -le 8; $attempt++) {
+        Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+
+        $tempPath = Join-Path $env:TEMP ("youobd-scanner-" + [guid]::NewGuid().ToString("N") + ".xml")
+        try {
+            Save-YouObdUiDump -DeviceId $DeviceId -TargetPath $tempPath
+            $uiRaw = Get-Content -LiteralPath $tempPath -Raw -Encoding utf8
+
+            if ($uiRaw -match 'LAB_SCANNER|Leitura ativa|Persistencia|Persistência') {
+                return
+            }
+
+            $scannerNode = Find-YouObdUiNode -UiDumpPath $tempPath -Pattern 'Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico'
+            if ($null -ne $scannerNode) {
+                $center = Get-YouObdBoundsCenter -Bounds $scannerNode.Bounds
+                Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+                Start-Sleep -Seconds 4
+                Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+                $readyNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern 'LAB_SCANNER|Leitura ativa|Persistencia|Persistência|Scanner Tecnico|Scanner T..cnico' -TimeoutSeconds 12 -PollMilliseconds 800
+                if ($null -ne $readyNode) {
+                    return
+                }
+            }
+
+            $retryNode = Find-YouObdUiNode -UiDumpPath $tempPath -Pattern 'Tentar Novamente'
+            if ($null -ne $retryNode -and $retryAttempts -lt 2) {
+                $center = Get-YouObdBoundsCenter -Bounds $retryNode.Bounds
+                Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+                $retryAttempts++
+                Start-Sleep -Seconds 18
+                continue
+            }
+
+            if ($uiRaw -match 'Conectando|Despertando rede do carro|ELM327 v1.4b|PIDs suportados|Auto-conectado|ECU Pronta') {
+                Start-Sleep -Seconds 8
+                continue
+            }
+
+            Invoke-YouObdSwipe -DeviceId $DeviceId -X1 ([int]($size.Width * 0.50)) -Y1 ([int]($size.Height * 0.82)) -X2 ([int]($size.Width * 0.50)) -Y2 ([int]($size.Height * 0.48)) -DurationMs 300
+            Start-Sleep -Seconds 2
+        }
+        finally {
+            if (Test-Path -LiteralPath $tempPath) {
+                Remove-Item -LiteralPath $tempPath -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    throw "O Scanner Tecnico nao abriu corretamente."
+}
+
+function Open-YouAutoCarDiagnosticsTab {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName = "com.youautocar.client2"
+    )
+
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+        Start-Sleep -Seconds 2
+
+        $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "^Diagn" -TimeoutSeconds 12 -PollMilliseconds 900
+        if ($null -eq $node) {
+            $size = Get-YouObdDisplaySize -DeviceId $DeviceId
+            $fallbackX = [int]($size.Width * 0.30)
+            $fallbackY = [int]($size.Height * 0.90)
+            Invoke-YouObdTap -DeviceId $DeviceId -X $fallbackX -Y $fallbackY
+            Start-Sleep -Seconds 2
+        }
+        else {
+            $center = Get-YouObdBoundsCenter -Bounds $node.Bounds
+            Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+            Start-Sleep -Seconds 3
+        }
+
+        Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+        $readyNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "LAB_DIAGNOSTICS|Conectar ao OBD|Configura[cÃ§][oÃµ]es Bluetooth|Conectando|Ve[iÃ­]culo|Diagn[oÃ³]stico" -TimeoutSeconds 8 -PollMilliseconds 700
+        if ($null -ne $readyNode) {
+            return
+        }
+    }
+
+    throw "Nao foi possivel localizar a aba Diagnostico do YouAutoCar."
+}
+
+function Open-YouAutoCarScannerTecnico {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName = "com.youautocar.client2"
+    )
+
+    Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+
+    $readyNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Auto-conectado|ECU Pronta|Scanner ao vivo conectado|OBDLink MX\\+" -TimeoutSeconds 18 -PollMilliseconds 900
+    if ($null -eq $readyNode) {
+        Start-Sleep -Seconds 4
+    }
+
+    $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico" -TimeoutSeconds 8 -PollMilliseconds 700
+    if ($null -eq $node) {
+        $size = Get-YouObdDisplaySize -DeviceId $DeviceId
+        Invoke-YouObdTap -DeviceId $DeviceId -X ([int]($size.Width * 0.82)) -Y ([int]($size.Height * 0.07))
+        Start-Sleep -Seconds 2
+        Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+
+        $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 6 -PollMilliseconds 700
+        if ($null -ne $node) {
+            return
+        }
+
+        Invoke-YouObdSwipe -DeviceId $DeviceId -X1 ([int]($size.Width * 0.5)) -Y1 ([int]($size.Height * 0.78)) -X2 ([int]($size.Width * 0.5)) -Y2 ([int]($size.Height * 0.48)) -DurationMs 300
+        Start-Sleep -Seconds 1
+        Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+
+        $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico" -TimeoutSeconds 5 -PollMilliseconds 700
+        if ($null -eq $node) {
+            Invoke-YouObdTap -DeviceId $DeviceId -X ([int]($size.Width * 0.5)) -Y ([int]($size.Height * 0.42))
+            Start-Sleep -Seconds 2
+        } else {
+            $center = Get-YouObdBoundsCenter -Bounds $node.Bounds
+            Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+            Start-Sleep -Seconds 3
+        }
+    }
+    else {
+        $center = Get-YouObdBoundsCenter -Bounds $node.Bounds
+        Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+        Start-Sleep -Seconds 4
+    }
+
+    Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+    $scannerNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 12 -PollMilliseconds 800
+    if ($null -eq $scannerNode) {
+        $retryNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico" -TimeoutSeconds 4 -PollMilliseconds 700
+        if ($null -ne $retryNode) {
+            $retryCenter = Get-YouObdBoundsCenter -Bounds $retryNode.Bounds
+            Invoke-YouObdTap -DeviceId $DeviceId -X $retryCenter.X -Y $retryCenter.Y
+            Start-Sleep -Seconds 4
+            Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
             $scannerNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 12 -PollMilliseconds 800
         }
     }

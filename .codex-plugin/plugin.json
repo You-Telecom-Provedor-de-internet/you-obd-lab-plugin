@@ -1,6 +1,6 @@
 {
   "name": "you-obd-lab",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "description": "Plugin local multi-skill para validar simulador OBD, app Android, firmware de laboratorio e revisao transversal no ecossistema YOU.",
   "author": {
     "name": "YOU OBD Lab",
@@ -33,7 +33,8 @@
     "privacyPolicyURL": "https://github.com/You-Telecom-Provedor-de-internet/you-obd-lab-plugin",
     "termsOfServiceURL": "https://github.com/You-Telecom-Provedor-de-internet/you-obd-lab-plugin",
     "defaultPrompt": [
-      "Use $you-obd-android-lab para validar o simulador com o app Android e o celular real.",
+      "Use $you-obd-team para abrir a equipe real de agentes do YOU OBD Lab com coordenador, especialistas por dominio e reviewer.",
+      "Use $you-obd-android-lab para validacao ponta a ponta do laboratorio.",
       "Use $you-orchestrator para coordenar tarefas entre YouAutoCarvAPP2, YouSimuladorOBD, plugin e Android.",
       "Use $youautotester-lab para trabalhar apenas no firmware/YouAutoTester.",
       "Use $you-android-gateway para Android, BLE, ADB e gateway do IKRO.",

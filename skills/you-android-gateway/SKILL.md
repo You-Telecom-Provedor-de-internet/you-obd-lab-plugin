@@ -67,11 +67,11 @@ Always summarize:
 
 Prefer this structure:
 
-- Device and transport setup: phone, build, pairing state, adapter or IKRO path
-- Evidence: `adb`, logcat, screenshots, captures, or traces used
-- Reading flow: source, mapping, and destination
-- Change or diagnosis: what failed or what was updated
-- Risks and next checks: what still depends on a real device or downstream validation
+1. Gateway architecture: source, transport, forwarding path, and Android role
+2. Modules affected: app layers, gateway code, device tools, or transport adapters touched
+3. Contracts used: payloads, BLE messages, local transport shapes, and downstream expectations
+4. Bluetooth risks: pairing, permissions, instability, or device-specific uncertainty
+5. Test plan: `adb`, logcat, screenshots, capture traces, and real-device validation steps
 
 ## Handoff Guidance
 

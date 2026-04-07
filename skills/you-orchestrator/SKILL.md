@@ -68,11 +68,11 @@ Always summarize:
 
 Prefer this structure:
 
-- Goal: what the user is trying to achieve
-- Systems touched: repos, device surfaces, and services involved
-- Contract map: payloads, events, routes, and ownership
-- Proposed change: what changes where
-- Risks and follow-ups: what still needs validation or handoff
+1. Objective: what the user is trying to achieve
+2. Modules impacted: repos, device surfaces, services, and integration points involved
+3. Contracts involved: payloads JSON, events WebSocket, routes, and ownership
+4. Risks: breaking changes, downstream consumers, and validation gaps
+5. Plan: recommended sequencing, handoffs, and next implementation steps
 
 ## Routing Guidance
 
