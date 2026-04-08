@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="YOU OBD Lab cover">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#081019"/>
+      <stop offset="55%" stop-color="#0f1e2d"/>
+      <stop offset="100%" stop-color="#15314b"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#102033"/>
+      <stop offset="100%" stop-color="#17324a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g opacity="0.18" stroke="#2a5874" stroke-width="2">
+    <path d="M50 110h1500"/>
+    <path d="M50 220h1500"/>
+    <path d="M50 330h1500"/>
+    <path d="M50 440h1500"/>
+    <path d="M50 550h1500"/>
+    <path d="M50 660h1500"/>
+    <path d="M50 770h1500"/>
+    <path d="M150 40v820"/>
+    <path d="M350 40v820"/>
+    <path d="M550 40v820"/>
+    <path d="M750 40v820"/>
+    <path d="M950 40v820"/>
+    <path d="M1150 40v820"/>
+    <path d="M1350 40v820"/>
+  </g>
+  <rect x="90" y="110" width="630" height="540" rx="38" fill="url(#panel)" stroke="#14C8FF" stroke-opacity="0.5"/>
+  <rect x="210" y="145" width="388" height="44" rx="22" fill="#14C8FF"/>
+  <rect x="170" y="190" width="470" height="350" rx="48" fill="#0b1724" stroke="#14C8FF" stroke-width="10"/>
+  <circle cx="250" cy="362" r="18" fill="#14C8FF"/>
+  <circle cx="560" cy="362" r="18" fill="#14C8FF"/>
+  <path d="M206 480h82l40-110 62 180 46-118h126" fill="none" stroke="#7CF29A" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="405" y="610" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="42" fill="#D8F7FF">YOU OBD LAB</text>
+  <rect x="790" y="120" width="710" height="160" rx="28" fill="#0d1825" fill-opacity="0.88" stroke="#2d5d75"/>
+  <rect x="790" y="320" width="710" height="160" rx="28" fill="#0d1825" fill-opacity="0.88" stroke="#2d5d75"/>
+  <rect x="790" y="520" width="710" height="160" rx="28" fill="#0d1825" fill-opacity="0.88" stroke="#2d5d75"/>
+  <text x="790" y="88" fill="#F4FBFF" font-family="Segoe UI, Arial, sans-serif" font-size="68" font-weight="700">YOU OBD Lab</text>
+  <text x="790" y="140" fill="#9ED9F0" font-family="Segoe UI, Arial, sans-serif" font-size="28">Simulador, Android, firmware, OBD real e bancada no mesmo fluxo</text>
+  <text x="835" y="185" fill="#14C8FF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Android + ADB</text>
+  <text x="835" y="228" fill="#F4FBFF" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Validacao ponta a ponta com app real</text>
+  <text x="835" y="264" fill="#CAEAF5" font-family="Segoe UI, Arial, sans-serif" font-size="24">Logcat, screenshots, bench, BLE e comportamento do app em uma mesma rodada.</text>
+  <text x="835" y="385" fill="#14C8FF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Simulator + Oracle</text>
+  <text x="835" y="428" fill="#F4FBFF" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">API do simulador como verdade de referencia</text>
+  <text x="835" y="464" fill="#CAEAF5" font-family="Segoe UI, Arial, sans-serif" font-size="24">Cenarios controlados, resposta esperada e comparacao contra o app e o OBD real.</text>
+  <text x="835" y="585" fill="#14C8FF" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Multi-skill workflow</text>
+  <text x="835" y="628" fill="#F4FBFF" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">Orquestrador, especialistas e reviewer</text>
+  <text x="835" y="664" fill="#CAEAF5" font-family="Segoe UI, Arial, sans-serif" font-size="24">Coordenacao entre simulador, Android, firmware e revisao final sem perder contratos.</text>
+</svg>

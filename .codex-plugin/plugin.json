@@ -1,6 +1,6 @@
 {
   "name": "you-obd-lab",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Plugin local multi-skill para validar simulador OBD, app Android, firmware de laboratorio e revisao transversal no ecossistema YOU.",
   "author": {
     "name": "YOU OBD Lab",
@@ -44,6 +44,8 @@
     "brandColor": "#14C8FF",
     "composerIcon": "./assets/you-obd-lab-small.svg",
     "logo": "./assets/app-icon.svg",
-    "screenshots": []
+    "screenshots": [
+      "./assets/cover.svg"
+    ]
   }
 }
