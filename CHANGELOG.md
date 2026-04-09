@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 - 2026-04-09
+
+- consolida a governanca contratual entre app, tester, simulador e plugin para a rodada de contratos, persistencia, simulador e DMM
+- formaliza `protocol_id` como referencia canonica no plugin, fixtures e oracle, com `scenario_numeric_id` mantido como legado de compatibilidade
+- registra o stack local hibrido com Codex + Ollama e as skills de auditoria, contrato, teste e telemetria para operacao multiagente
+- empacota a entrega com changelog e versao coerentes para a proxima rodada operacional
+
 ## 0.4.0 - 2026-04-07
 
 - adiciona a skill `you-obd-team` como entrada padrao para abrir a equipe real de agentes do plugin
