@@ -2,6 +2,10 @@ param(
     [string]$SimulatorBaseUrl = "http://192.168.1.11",
     [string]$User = "",
     [string]$Password = "",
+    [string]$DeviceId = "",
+    [string]$WifiDeviceIp = "192.168.1.99",
+    [int]$AdbWifiPort = 5555,
+    [switch]$PromoteUsbToWifi = $true,
     [string]$AppPackage = "com.youautocar.client2",
     [string]$OutputDir = ""
 )
@@ -20,27 +24,25 @@ $statusPath = Join-Path $OutputDir "api-status.json"
 $diagPath = Join-Path $OutputDir "api-diagnostics.json"
 $profilesPath = Join-Path $OutputDir "api-profiles.json"
 $devicesPath = Join-Path $OutputDir "adb-devices.txt"
-$packagesPath = Join-Path $OutputDir "adb-packages.txt"
+$packageInfoPath = Join-Path $OutputDir "adb-package-info.txt"
 $screenPath = Join-Path $OutputDir "phone-screen.png"
 $logcatPath = Join-Path $OutputDir "phone-logcat.txt"
 $summaryPath = Join-Path $OutputDir "summary.txt"
 
-$devices = @(Get-YouObdAuthorizedDevices)
+$deviceConnection = Resolve-YouObdDeviceConnection -DeviceId $DeviceId -AllowWifiFallback -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort -PromoteUsbToWifi:$PromoteUsbToWifi
+$resolvedDeviceId = $deviceConnection.Id
+$devices = @(Get-YouObdAuthorizedDevices -TryWifiFallback -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort)
 ($devices | ForEach-Object { $_.Raw }) | Out-File -FilePath $devicesPath -Encoding utf8
-$authorized = $devices
 
-if (-not $authorized) {
-    throw "Nenhum dispositivo ADB autorizado encontrado."
-}
-
-Invoke-YouObdAdb -DeviceId $authorized[0].Id -Arguments @("shell", "pm", "list", "packages") | Out-File -FilePath $packagesPath -Encoding utf8
+$packageInfo = Get-YouObdPackageInfo -DeviceId $resolvedDeviceId -PackageName $AppPackage
+$packageInfo.Raw | Out-File -FilePath $packageInfoPath -Encoding utf8
 
 Save-YouObdApiPayload -BaseUrl $SimulatorBaseUrl -Path "/api/status" -TargetPath $statusPath -User $User -Password $Password | Out-Null
 Save-YouObdApiPayload -BaseUrl $SimulatorBaseUrl -Path "/api/diagnostics" -TargetPath $diagPath -User $User -Password $Password | Out-Null
 Save-YouObdApiPayload -BaseUrl $SimulatorBaseUrl -Path "/api/profiles" -TargetPath $profilesPath -User $User -Password $Password | Out-Null
 
-Save-YouObdScreenshot -DeviceId $authorized[0].Id -TargetPath $screenPath
-Save-YouObdLogcat -DeviceId $authorized[0].Id -TargetPath $logcatPath -Lines 500
+Save-YouObdScreenshot -DeviceId $resolvedDeviceId -TargetPath $screenPath
+Save-YouObdLogcat -DeviceId $resolvedDeviceId -TargetPath $logcatPath -Lines 500
 
 $statusJson = Get-Content $statusPath -Raw
 $diagJson = Get-Content $diagPath -Raw
@@ -54,8 +56,17 @@ $summary = @()
 $summary += "YOU OBD Lab snapshot"
 $summary += "Timestamp: $(Get-Date -Format s)"
 $summary += "Simulator: $SimulatorBaseUrl"
-$summary += "ADB device: $($authorized[0].Id)"
+$summary += "ADB device: $resolvedDeviceId"
+$summary += "ADB transport: $($deviceConnection.Transport)"
+$summary += "ADB strategy: $($deviceConnection.ConnectionStrategy)"
+$summary += "ADB Wi-Fi endpoint: $($deviceConnection.WifiEndpoint)"
+if (-not [string]::IsNullOrWhiteSpace($deviceConnection.PromotionError)) {
+    $summary += "ADB Wi-Fi error: $($deviceConnection.PromotionError)"
+}
 $summary += "ADB package target: $AppPackage"
+if (-not [string]::IsNullOrWhiteSpace($packageInfo.VersionName) -or -not [string]::IsNullOrWhiteSpace($packageInfo.VersionCode)) {
+    $summary += "ADB package version: $($packageInfo.VersionName)+$($packageInfo.VersionCode)"
+}
 $summary += ""
 $summary += "API status:"
 if ($status) {
@@ -70,10 +81,17 @@ if ($status) {
 $summary += ""
 $summary += "Diagnostics:"
 if ($diag) {
-    $summary += "  active_scenario: $($diag.active_scenario)"
-    $summary += "  health: $($diag.health)"
-    $summary += "  alert: $($diag.primary_alert)"
-    $summary += "  dtcs_total: $($diag.dtcs_total)"
+    $diagScenarioId = Get-YouObdObjectValue -Object $diag -Name "scenario_id" -Default ""
+    $diagHealth = Get-YouObdObjectValue -Object $diag -Name "health_score" -Default (Get-YouObdObjectValue -Object $diag -Name "health" -Default "")
+    $diagDriveContext = Get-YouObdObjectValue -Object $diag -Name "drive_context" -Default ""
+    $diagDtcs = @(Get-YouObdObjectValue -Object $diag -Name "dtcs" -Default @())
+    $diagAlerts = @(Get-YouObdObjectValue -Object $diag -Name "alerts" -Default @())
+
+    $summary += "  scenario_id: $diagScenarioId"
+    $summary += "  drive_context: $diagDriveContext"
+    $summary += "  health_score: $diagHealth"
+    $summary += "  alerts_total: $($diagAlerts.Count)"
+    $summary += "  dtcs_total: $($diagDtcs.Count)"
 } else {
     $summary += "  unable to parse /api/diagnostics"
 }
@@ -83,7 +101,7 @@ $summary += "  $statusPath"
 $summary += "  $diagPath"
 $summary += "  $profilesPath"
 $summary += "  $devicesPath"
-$summary += "  $packagesPath"
+$summary += "  $packageInfoPath"
 $summary += "  $screenPath"
 $summary += "  $logcatPath"
 

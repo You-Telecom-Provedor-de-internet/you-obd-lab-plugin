@@ -9,7 +9,7 @@ Use this skill when the tester is the product under investigation. Keep the lab 
 
 ## Primary Area
 
-- `C:\www\YouSimuladorOBD\firmware\YouAutoTester`
+- `C:\www\YouAutoCarvAPP2\firmware\YouAutoTester`
 - Local WebUI and any local HTTP or WebSocket surface owned by the tester
 - Instrument adapters and acquisition flows used by the tester
 

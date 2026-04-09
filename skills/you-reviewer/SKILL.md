@@ -69,6 +69,7 @@ Prefer this structure:
 - Treat Android transport changes as incomplete without `ADB`, logs, or device evidence
 - Treat simulator changes as incomplete without stating whether proof came from API, OBD, or both
 - Treat tester changes as incomplete without clarifying `TestResult` and `Reading` compatibility
+- Treat flows that emit both `service_order_id` and `os_code` as incomplete unless review confirms the UUID is authoritative and success is not inferred from transport alone
 
 ## Handoff Guidance
 

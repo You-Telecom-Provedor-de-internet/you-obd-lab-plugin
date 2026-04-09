@@ -1,0 +1,4 @@
+interface:
+  display_name: "You Test Conductor"
+  short_description: "Organiza validacao, evidencias e sequencia de testes."
+  default_prompt: "Use $you-test-conductor para montar e executar a menor sequencia confiavel de validacao no ecossistema YOU."

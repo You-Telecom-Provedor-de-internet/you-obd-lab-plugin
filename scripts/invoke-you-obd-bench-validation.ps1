@@ -5,6 +5,9 @@ param(
     [string]$User = "",
     [string]$Password = "",
     [string]$DeviceId = "",
+    [string]$WifiDeviceIp = "192.168.1.99",
+    [int]$AdbWifiPort = 5555,
+    [switch]$PromoteUsbToWifi = $true,
     [string]$AppPackage = "com.youautocar.client2",
     [string]$ProfileId = "",
     [int]$ProtocolId = -1,
@@ -124,6 +127,9 @@ function Get-YouObdExpectedOracleValue {
     switch ($Name) {
         "profile_id" {
             return Get-YouObdObjectValue -Object $Status -Name "profile_id" -Default (Get-YouObdObjectValue -Object (Get-YouObdObjectValue -Object $Diagnostics -Name "vehicle" -Default $null) -Name "profile_id" -Default "")
+        }
+        "protocol_id" {
+            return Get-YouObdObjectValue -Object $Status -Name "protocol_id" -Default (Get-YouObdObjectValue -Object (Get-YouObdObjectValue -Object $Diagnostics -Name "vehicle" -Default $null) -Name "protocol_id" -Default "")
         }
         "protocol" {
             return Get-YouObdObjectValue -Object $Status -Name "protocol" -Default (Get-YouObdObjectValue -Object (Get-YouObdObjectValue -Object $Diagnostics -Name "vehicle" -Default $null) -Name "protocol" -Default "")
@@ -303,6 +309,12 @@ function Write-ReportArtifacts {
     $lines += "- Simulator: $($Report.setup.simulator_base_url)"
     $lines += "- App package: $($Report.setup.app_package)"
     $lines += "- Device: $($Report.setup.device_id)"
+    $lines += "- Device transport: $($Report.setup.device_transport)"
+    $lines += "- Device strategy: $($Report.setup.device_connection_strategy)"
+    $lines += "- Device Wi-Fi endpoint: $($Report.setup.device_wifi_endpoint)"
+    if (-not [string]::IsNullOrWhiteSpace($Report.setup.device_promotion_error)) {
+        $lines += "- Device Wi-Fi error: $($Report.setup.device_promotion_error)"
+    }
     if (-not [string]::IsNullOrWhiteSpace($Report.error)) {
         $lines += "- Error: $($Report.error)"
     }
@@ -323,6 +335,7 @@ function Write-ReportArtifacts {
     $lines += ""
     $lines += "## Oracle before"
     $lines += ""
+    $lines += "- protocol_id: $($Report.oracle.before.protocol_id)"
     $lines += "- protocol: $($Report.oracle.before.protocol)"
     $lines += "- profile_id: $($Report.oracle.before.profile_id)"
     $lines += "- sim_mode: $($Report.oracle.before.sim_mode)"
@@ -331,6 +344,7 @@ function Write-ReportArtifacts {
     $lines += ""
     $lines += "## Oracle after"
     $lines += ""
+    $lines += "- protocol_id: $($Report.oracle.after.protocol_id)"
     $lines += "- protocol: $($Report.oracle.after.protocol)"
     $lines += "- profile_id: $($Report.oracle.after.profile_id)"
     $lines += "- sim_mode: $($Report.oracle.after.sim_mode)"
@@ -426,6 +440,10 @@ $script:report = [ordered]@{
         simulator_base_url = $SimulatorBaseUrl
         app_package = $AppPackage
         device_id = ""
+        device_transport = ""
+        device_connection_strategy = ""
+        device_wifi_endpoint = ""
+        device_promotion_error = ""
         requested = [ordered]@{
             profile_id = $ProfileId
             protocol_id = $ProtocolId
@@ -436,6 +454,7 @@ $script:report = [ordered]@{
     }
     oracle = [ordered]@{
         before = [ordered]@{
+            protocol_id = ""
             protocol = ""
             profile_id = ""
             sim_mode = ""
@@ -444,6 +463,7 @@ $script:report = [ordered]@{
             dtcs = @()
         }
         after = [ordered]@{
+            protocol_id = ""
             protocol = ""
             profile_id = ""
             sim_mode = ""
@@ -553,6 +573,7 @@ try {
     $dtcsBefore = Get-Content -LiteralPath $dtcsBeforePath -Raw | ConvertFrom-Json
 
     $script:report.oracle.before = [ordered]@{
+        protocol_id = Get-YouObdExpectedOracleValue -Status $statusBefore -Diagnostics $diagBefore -Dtcs $dtcsBefore -Name "protocol_id"
         protocol = Get-YouObdExpectedOracleValue -Status $statusBefore -Diagnostics $diagBefore -Dtcs $dtcsBefore -Name "protocol"
         profile_id = Get-YouObdExpectedOracleValue -Status $statusBefore -Diagnostics $diagBefore -Dtcs $dtcsBefore -Name "profile_id"
         sim_mode = Get-YouObdObjectValue -Object $statusBefore -Name "sim_mode" -Default ""
@@ -576,10 +597,15 @@ try {
 
     if (-not $SkipPhone) {
         Set-YouObdPhase "open_app"
-        $resolvedDeviceId = Resolve-YouObdDeviceId -DeviceId $DeviceId
+        $deviceConnection = Resolve-YouObdDeviceConnection -DeviceId $DeviceId -AllowWifiFallback -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort -PromoteUsbToWifi:$PromoteUsbToWifi
+        $resolvedDeviceId = $deviceConnection.Id
         $script:report.setup.device_id = $resolvedDeviceId
+        $script:report.setup.device_transport = $deviceConnection.Transport
+        $script:report.setup.device_connection_strategy = $deviceConnection.ConnectionStrategy
+        $script:report.setup.device_wifi_endpoint = $deviceConnection.WifiEndpoint
+        $script:report.setup.device_promotion_error = $deviceConnection.PromotionError
 
-        @(Get-YouObdAuthorizedDevices) | ForEach-Object { $_.Raw } | Out-File -FilePath $adbDevicesPath -Encoding utf8
+        @(Get-YouObdAuthorizedDevices -TryWifiFallback -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort) | ForEach-Object { $_.Raw } | Out-File -FilePath $adbDevicesPath -Encoding utf8
         $script:report.artifacts += @($adbDevicesPath, $devicePropsPath, $packageInfoPath, $screenPath, $uiDumpPath, $logcatPath, $filteredLogPath, $diagnosticsScreenPath, $diagnosticsUiPath)
 
         Save-YouObdDeviceProps -DeviceId $resolvedDeviceId -TargetPath $devicePropsPath
@@ -730,6 +756,7 @@ try {
     $dtcsAfter = Get-Content -LiteralPath $dtcsAfterPath -Raw | ConvertFrom-Json
 
     $script:report.oracle.after = [ordered]@{
+        protocol_id = Get-YouObdExpectedOracleValue -Status $statusAfter -Diagnostics $diagAfter -Dtcs $dtcsAfter -Name "protocol_id"
         protocol = Get-YouObdExpectedOracleValue -Status $statusAfter -Diagnostics $diagAfter -Dtcs $dtcsAfter -Name "protocol"
         profile_id = Get-YouObdExpectedOracleValue -Status $statusAfter -Diagnostics $diagAfter -Dtcs $dtcsAfter -Name "profile_id"
         sim_mode = Get-YouObdObjectValue -Object $statusAfter -Name "sim_mode" -Default ""

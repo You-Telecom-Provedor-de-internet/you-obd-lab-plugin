@@ -1,7 +1,7 @@
 {
   "name": "you-obd-lab",
-  "version": "0.4.1",
-  "description": "Plugin local multi-skill para validar simulador OBD, app Android, firmware de laboratorio e revisao transversal no ecossistema YOU.",
+  "version": "0.5.0",
+  "description": "Plugin local multi-skill e hybrid-AI para validar simulador OBD, app Android, firmware de laboratorio, contratos e telemetria no ecossistema YOU.",
   "author": {
     "name": "YOU OBD Lab",
     "email": "local@youobdlab.invalid",
@@ -15,13 +15,17 @@
     "android",
     "esp32",
     "adb",
-    "validation"
+    "validation",
+    "ollama",
+    "hybrid-ai",
+    "telemetry",
+    "contracts"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "YOU OBD Lab",
-    "shortDescription": "Hub multi-skill para simulador, Android e bancada.",
-    "longDescription": "Plugin local multi-skill do ecossistema YOU para trabalhar com YouSimuladorOBD, YouAutoCarvAPP2, firmware YouAutoTester, OBD real, Android via ADB e revisao transversal usando skills especializadas por dominio.",
+    "shortDescription": "Hub multi-skill para simulador, Android, bancada e triagem local via Ollama.",
+    "longDescription": "Plugin local multi-skill do ecossistema YOU para trabalhar com YouSimuladorOBD, YouAutoCarvAPP2, firmware YouAutoTester, OBD real, Android via ADB, contratos, telemetria e um fluxo hibrido com GPT-5.4 para orquestracao/revisao e Ollama para triagem operacional.",
     "developerName": "YOU OBD Lab",
     "category": "Developer Tools",
     "capabilities": [
@@ -36,6 +40,10 @@
       "Use $you-obd-team para abrir a equipe real de agentes do YOU OBD Lab com coordenador, especialistas por dominio e reviewer.",
       "Use $you-obd-android-lab para validacao ponta a ponta do laboratorio.",
       "Use $you-orchestrator para coordenar tarefas entre YouAutoCarvAPP2, YouSimuladorOBD, plugin e Android.",
+      "Use $you-monorepo-auditor para mapear impacto entre repos e rodar triagem inicial com perfis Ollama quando fizer sentido.",
+      "Use $you-contract-guardian para congelar contratos JSON, WebSocket, rotas e cargas uteis sem drift.",
+      "Use $you-test-conductor para organizar validacao, evidencias, smoke tests e execucao orientada por risco.",
+      "Use $you-telemetry-inspector para inspecionar logs, traces, serial, logcat e eventos antes da revisao final.",
       "Use $youautotester-lab para trabalhar apenas no firmware/YouAutoTester.",
       "Use $you-android-gateway para Android, BLE, ADB e gateway do IKRO.",
       "Use $you-obd-simulator para cenarios e validacoes no simulador OBD.",

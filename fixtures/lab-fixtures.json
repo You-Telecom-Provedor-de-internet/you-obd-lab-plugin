@@ -26,7 +26,7 @@
       ],
       "expected_oracle_fields": {
         "profile_id": "kia_carens_20",
-        "protocol": "CAN 11b 500k",
+        "protocol_id": 0,
         "profile_turbo": false
       }
     },
@@ -58,7 +58,7 @@
       ],
       "expected_oracle_fields": {
         "profile_id": "kia_carens_20",
-        "protocol": "CAN 11b 500k",
+        "protocol_id": 0,
         "profile_turbo": false
       }
     },
@@ -87,7 +87,7 @@
       ],
       "expected_oracle_fields": {
         "profile_id": "peugeot_308_16thp",
-        "protocol": "CAN 11b 500k",
+        "protocol_id": 0,
         "profile_turbo": true
       }
     },
@@ -116,7 +116,7 @@
       ],
       "expected_oracle_fields": {
         "profile_id": "fiat_uno_10",
-        "protocol": "ISO 9141-2",
+        "protocol_id": 4,
         "profile_turbo": false
       }
     }

@@ -29,6 +29,7 @@ Validate simulator behavior across three planes:
 ### D. Validate Android UX
 
 - inspect the real phone via ADB
+- prefer USB first, but if the phone is missing on USB use ADB over Wi-Fi on `192.168.1.99:5555`
 - use screenshots or logcat when helpful
 - confirm what the user actually saw
 

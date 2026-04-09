@@ -5,6 +5,9 @@ param(
     [string]$User = "",
     [string]$Password = "",
     [string]$DeviceId = "",
+    [string]$WifiDeviceIp = "192.168.1.99",
+    [int]$AdbWifiPort = 5555,
+    [switch]$PromoteUsbToWifi = $true,
     [string]$AppPackage = "com.youautocar.client2",
     [string]$OutputDir = "",
     [switch]$SkipPhone,
@@ -64,6 +67,9 @@ foreach ($fixture in $fixtures) {
     if (-not [string]::IsNullOrWhiteSpace($User)) { $args += @("-User", $User) }
     if (-not [string]::IsNullOrWhiteSpace($Password)) { $args += @("-Password", $Password) }
     if (-not [string]::IsNullOrWhiteSpace($DeviceId)) { $args += @("-DeviceId", $DeviceId) }
+    if (-not [string]::IsNullOrWhiteSpace($WifiDeviceIp)) { $args += @("-WifiDeviceIp", $WifiDeviceIp) }
+    if ($AdbWifiPort -gt 0) { $args += @("-AdbWifiPort", "$AdbWifiPort") }
+    if ($PromoteUsbToWifi) { $args += "-PromoteUsbToWifi" }
     if ($SkipPhone) { $args += "-SkipPhone" }
     if ($KeepAppRunning) { $args += "-KeepAppRunning" }
 

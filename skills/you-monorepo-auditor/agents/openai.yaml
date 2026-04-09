@@ -1,0 +1,4 @@
+interface:
+  display_name: "You Monorepo Auditor"
+  short_description: "Mapeia ownership e impacto entre os repos YOU."
+  default_prompt: "Use $you-monorepo-auditor para mapear impacto entre YouAutoCarvAPP2, YouSimuladorOBD e o plugin antes de editar."

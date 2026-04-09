@@ -38,6 +38,8 @@ Use this skill when the Android device and its transport layers are the critical
 ### 1. Establish device truth
 
 - Run `adb devices` first when a real device is part of the task
+- Prefer USB discovery first, then fall back to `ADB over Wi-Fi` on `192.168.1.99:5555` when the cable path is unavailable
+- When USB is available but the run should continue cable-free, promote the session to Wi-Fi instead of treating that as a separate device story
 - Check authorization, app install state, and log availability
 - State clearly when the phone is unavailable and validation is therefore partial
 

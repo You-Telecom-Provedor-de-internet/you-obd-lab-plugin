@@ -39,19 +39,21 @@ Esse cenario encosta nos tres planos sem adicionar ruido de dirigibilidade:
 Assumindo o simulador acessivel em `http://<SIMULADOR>`:
 
 ```powershell
-curl.exe -u api:obdapi2026 http://<SIMULADOR>/api/status
-curl.exe -u api:obdapi2026 -H "Content-Type: application/json" -d "{\"id\":\"peugeot_308_16thp\"}" http://<SIMULADOR>/api/profile
-curl.exe -u api:obdapi2026 -H "Content-Type: application/json" -d "{\"id\":1}" http://<SIMULADOR>/api/mode
-curl.exe -u api:obdapi2026 -H "Content-Type: application/json" -d "{\"id\":\"unstable_voltage_multi_module\"}" http://<SIMULADOR>/api/scenario
-curl.exe -u api:obdapi2026 http://<SIMULADOR>/api/diagnostics
+curl.exe -u youobd-core:YouOBD.RevA@2026#Core http://<SIMULADOR>/api/status
+curl.exe -u youobd-core:YouOBD.RevA@2026#Core -H "Content-Type: application/json" -d "{\"id\":\"peugeot_308_16thp\"}" http://<SIMULADOR>/api/profile
+curl.exe -u youobd-core:YouOBD.RevA@2026#Core -H "Content-Type: application/json" -d "{\"id\":1}" http://<SIMULADOR>/api/mode
+curl.exe -u youobd-core:YouOBD.RevA@2026#Core -H "Content-Type: application/json" -d "{\"id\":\"unstable_voltage_multi_module\"}" http://<SIMULADOR>/api/scenario
+curl.exe -u youobd-core:YouOBD.RevA@2026#Core http://<SIMULADOR>/api/diagnostics
 ```
 
 ## Oracle esperado
 
 Em `GET /api/status`:
 
+- `protocol_id = 0`
 - `profile_id = "peugeot_308_16thp"`
 - `scenario_id = "unstable_voltage_multi_module"`
+- `scenario_numeric_id = 5`
 - `sim_mode = idle`
 - variacao perceptivel em `battery_voltage`
 

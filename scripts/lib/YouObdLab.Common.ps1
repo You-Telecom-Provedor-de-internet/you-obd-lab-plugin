@@ -20,6 +20,117 @@ function Get-YouObdAdbPath {
     throw "adb nao encontrado. Instale Android platform-tools ou ajuste o PATH."
 }
 
+function Get-YouObdAdbWifiHost {
+    foreach ($candidate in @($env:YOU_OBD_ADB_WIFI_HOST, $env:YOU_OBD_PHONE_IP, "192.168.1.99")) {
+        $text = [string]$candidate
+        if (-not [string]::IsNullOrWhiteSpace($text)) {
+            return $text.Trim()
+        }
+    }
+
+    throw "Host Wi-Fi do ADB nao configurado."
+}
+
+function Get-YouObdAdbWifiPort {
+    $parsed = 0
+    if ([int]::TryParse([string]$env:YOU_OBD_ADB_WIFI_PORT, [ref]$parsed) -and $parsed -gt 0) {
+        return $parsed
+    }
+
+    return 5555
+}
+
+function Get-YouObdAdbEndpoint {
+    param(
+        [string]$AdbWifiHost = "",
+        [int]$AdbWifiPort = 0
+    )
+
+    if ([string]::IsNullOrWhiteSpace($AdbWifiHost)) {
+        $AdbWifiHost = Get-YouObdAdbWifiHost
+    }
+    if ($AdbWifiPort -le 0) {
+        $AdbWifiPort = Get-YouObdAdbWifiPort
+    }
+
+    $AdbWifiHost = $AdbWifiHost.Trim()
+    if ($AdbWifiHost -match ":\d+$") {
+        return $AdbWifiHost
+    }
+
+    return "${AdbWifiHost}:$AdbWifiPort"
+}
+
+function Test-YouObdNetworkDeviceId {
+    param([string]$DeviceId)
+
+    return -not [string]::IsNullOrWhiteSpace($DeviceId) -and $DeviceId -match "^[^:\s]+:\d+$"
+}
+
+function Get-YouObdDeviceTransport {
+    param([string]$DeviceId)
+
+    if (Test-YouObdNetworkDeviceId -DeviceId $DeviceId) {
+        return "wifi"
+    }
+
+    return "usb"
+}
+
+function Test-YouObdTcpEndpointReachable {
+    param(
+        [string]$TcpHost,
+        [int]$Port,
+        [int]$TimeoutMilliseconds = 2500
+    )
+
+    if ([string]::IsNullOrWhiteSpace($TcpHost) -or $Port -le 0) {
+        return $false
+    }
+
+    $client = $null
+    $async = $null
+    try {
+        $client = New-Object System.Net.Sockets.TcpClient
+        $async = $client.BeginConnect($TcpHost, $Port, $null, $null)
+        if (-not $async.AsyncWaitHandle.WaitOne($TimeoutMilliseconds, $false)) {
+            return $false
+        }
+
+        $client.EndConnect($async)
+        return $true
+    }
+    catch {
+        return $false
+    }
+    finally {
+        if ($null -ne $async) {
+            $async.AsyncWaitHandle.Close()
+        }
+        if ($null -ne $client) {
+            $client.Close()
+        }
+    }
+}
+
+function Find-YouObdAuthorizedDevice {
+    param(
+        [object[]]$Devices,
+        [string]$DeviceId = "",
+        [string]$Transport = ""
+    )
+
+    $matches = @($Devices)
+    if (-not [string]::IsNullOrWhiteSpace($DeviceId)) {
+        $matches = @($matches | Where-Object { $_.Id -eq $DeviceId })
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Transport)) {
+        $matches = @($matches | Where-Object { $_.Transport -eq $Transport })
+    }
+
+    return ($matches | Select-Object -First 1)
+}
+
 function Get-YouObdCurlPath {
     $command = Get-Command "curl.exe" -ErrorAction SilentlyContinue
     if ($command) {
@@ -31,9 +142,9 @@ function Get-YouObdCurlPath {
 
 function Get-YouObdApiCredentialDefaults {
     $defaults = @{
-        User = "api"
-        Password = "obdapi2026"
-        Source = "factory"
+        User = "youobd-core"
+        Password = "YouOBD.RevA@2026#Core"
+        Source = "firmware-default"
     }
 
     $localCredentialsPath = Join-Path (Split-Path $PSScriptRoot -Parent) "local-api-credentials.json"
@@ -270,7 +381,11 @@ function Get-YouObdObjectValue {
     return $property.Value
 }
 
-function Get-YouObdAuthorizedDevices {
+function Get-YouObdAdbDeviceEntries {
+    param(
+        [switch]$IncludeOffline
+    )
+
     $adb = Get-YouObdAdbPath
     $result = Invoke-YouObdExternal -FilePath $adb -Arguments @("devices", "-l")
     if ($result.ExitCode -ne 0) {
@@ -285,35 +400,259 @@ function Get-YouObdAuthorizedDevices {
             continue
         }
 
-        if ($text -match "^(?<id>\S+)\s+device\b") {
+        if ($text -match "^(?<id>\S+)\s+(?<state>\S+)\b") {
+            $state = $matches["state"].Trim().ToLowerInvariant()
+            if (-not $IncludeOffline -and $state -ne "device") {
+                continue
+            }
+
             $devices += [pscustomobject]@{
                 Id = $matches["id"]
+                State = $state
                 Raw = $text.Trim()
+                Transport = Get-YouObdDeviceTransport -DeviceId $matches["id"]
+                IsTcp = $matches["id"] -match ":\d+$"
             }
         }
     }
 
-    return $devices
+    return @($devices)
+}
+
+function Get-YouObdAdbWifiEndpoint {
+    param(
+        [string]$WifiDeviceIp = "",
+        [int]$AdbWifiPort = 0
+    )
+
+    if ([string]::IsNullOrWhiteSpace($WifiDeviceIp)) {
+        $WifiDeviceIp = Get-YouObdAdbWifiHost
+    }
+    if ($AdbWifiPort -le 0) {
+        $AdbWifiPort = Get-YouObdAdbWifiPort
+    }
+
+    $WifiDeviceIp = $WifiDeviceIp.Trim()
+    return (Get-YouObdAdbEndpoint -AdbWifiHost $WifiDeviceIp -AdbWifiPort $AdbWifiPort)
+}
+
+function Connect-YouObdAdbWifi {
+    param(
+        [string]$WifiDeviceIp = "",
+        [int]$AdbWifiPort = 0,
+        [string]$UsbDeviceId = ""
+    )
+
+    $adb = Get-YouObdAdbPath
+    $endpoint = Get-YouObdAdbWifiEndpoint -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort
+    if ($AdbWifiPort -le 0) {
+        $AdbWifiPort = Get-YouObdAdbWifiPort
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($UsbDeviceId)) {
+        $tcpipResult = Invoke-YouObdExternal -FilePath $adb -Arguments @("-s", $UsbDeviceId, "tcpip", "$AdbWifiPort")
+        if ($tcpipResult.ExitCode -ne 0) {
+            $joined = ($tcpipResult.Output -join "`n").Trim()
+            throw "Falha promovendo USB para ADB Wi-Fi no dispositivo ${UsbDeviceId}: $joined"
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    $existingWifiDevice = Find-YouObdAuthorizedDevice -Devices @(Get-YouObdAdbDeviceEntries) -DeviceId $endpoint
+    if ($null -ne $existingWifiDevice) {
+        return $existingWifiDevice
+    }
+
+    if ($endpoint -match '^(?<host>[^:]+):(?<port>\d+)$') {
+        $tcpHost = $matches["host"]
+        $tcpPort = [int]$matches["port"]
+        if (-not (Test-YouObdTcpEndpointReachable -TcpHost $tcpHost -Port $tcpPort)) {
+            throw "Dispositivo Wi-Fi $endpoint nao respondeu na porta ADB."
+        }
+    }
+
+    $connectResult = Invoke-YouObdExternal -FilePath $adb -Arguments @("connect", $endpoint)
+    $joined = ($connectResult.Output -join "`n").Trim()
+    $connectOk = $connectResult.ExitCode -eq 0 -or
+        $joined -match 'already connected|already connected to|connected to'
+    if (-not $connectOk) {
+        throw "Falha conectando ADB via Wi-Fi em ${endpoint}: $joined"
+    }
+
+    $deadline = (Get-Date).AddSeconds(12)
+    do {
+        $wifiDevice = Find-YouObdAuthorizedDevice -Devices @(Get-YouObdAdbDeviceEntries) -DeviceId $endpoint
+        if ($null -ne $wifiDevice) {
+            return $wifiDevice
+        }
+
+        Start-Sleep -Milliseconds 700
+    } while ((Get-Date) -lt $deadline)
+
+    if ($null -eq $wifiDevice) {
+        throw "ADB conectou em $endpoint, mas o dispositivo nao ficou autorizado no estado device."
+    }
+}
+
+function Resolve-YouObdDeviceConnection {
+    param(
+        [string]$DeviceId = "",
+        [switch]$AllowWifiFallback = $true,
+        [string]$WifiDeviceIp = "",
+        [int]$AdbWifiPort = 0,
+        [switch]$PromoteUsbToWifi = $true
+    )
+
+    $wifiEndpoint = Get-YouObdAdbWifiEndpoint -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort
+    if (-not [string]::IsNullOrWhiteSpace($DeviceId)) {
+        if (-not (Test-YouObdNetworkDeviceId -DeviceId $DeviceId) -and $PromoteUsbToWifi) {
+            try {
+                $wifiDevice = Connect-YouObdAdbWifi -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort -UsbDeviceId $DeviceId
+                return [pscustomobject]@{
+                    Id = $wifiDevice.Id
+                    Raw = $wifiDevice.Raw
+                    Transport = "wifi"
+                    ConnectionStrategy = "explicit-usb-promoted-to-wifi"
+                    WifiEndpoint = $wifiEndpoint
+                    PromotionError = ""
+                }
+            }
+            catch {
+                return [pscustomobject]@{
+                    Id = $DeviceId
+                    Raw = $DeviceId
+                    Transport = "usb"
+                    ConnectionStrategy = "explicit-usb-promotion-failed"
+                    WifiEndpoint = $wifiEndpoint
+                    PromotionError = $_.Exception.Message
+                }
+            }
+        }
+
+        return [pscustomobject]@{
+            Id = $DeviceId
+            Raw = $DeviceId
+            Transport = if (Test-YouObdNetworkDeviceId -DeviceId $DeviceId) { "wifi" } else { "usb" }
+            ConnectionStrategy = "explicit-device-id"
+            WifiEndpoint = $wifiEndpoint
+            PromotionError = ""
+        }
+    }
+
+    $devices = @(Get-YouObdAuthorizedDevices -TryWifiFallback:$AllowWifiFallback -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort)
+    if ($devices.Count -eq 0) {
+        throw "Nenhum dispositivo ADB autorizado encontrado (USB ou Wi-Fi em $wifiEndpoint)."
+    }
+
+    $usbDevices = @($devices | Where-Object { -not $_.IsTcp })
+    $wifiDevices = @($devices | Where-Object { $_.IsTcp })
+
+    if ($usbDevices.Count -gt 0) {
+        if ($usbDevices.Count -gt 1) {
+            $list = ($usbDevices | ForEach-Object { $_.Raw }) -join "; "
+            throw "Mais de um dispositivo USB ADB autorizado encontrado. Informe -DeviceId. Dispositivos: $list"
+        }
+
+        $usbDevice = $usbDevices[0]
+        if ($PromoteUsbToWifi) {
+            try {
+                $wifiDevice = Connect-YouObdAdbWifi -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort -UsbDeviceId $usbDevice.Id
+                return [pscustomobject]@{
+                    Id = $wifiDevice.Id
+                    Raw = $wifiDevice.Raw
+                    Transport = "wifi"
+                    ConnectionStrategy = "usb-promoted-to-wifi"
+                    WifiEndpoint = $wifiEndpoint
+                    PromotionError = ""
+                }
+            }
+            catch {
+                return [pscustomobject]@{
+                    Id = $usbDevice.Id
+                    Raw = $usbDevice.Raw
+                    Transport = "usb"
+                    ConnectionStrategy = "usb-promotion-failed"
+                    WifiEndpoint = $wifiEndpoint
+                    PromotionError = $_.Exception.Message
+                }
+            }
+        }
+
+        return [pscustomobject]@{
+            Id = $usbDevice.Id
+            Raw = $usbDevice.Raw
+            Transport = "usb"
+            ConnectionStrategy = "usb-only"
+            WifiEndpoint = $wifiEndpoint
+            PromotionError = ""
+        }
+    }
+
+    if ($wifiDevices.Count -gt 1) {
+        $preferredWifi = @($wifiDevices | Where-Object { $_.Id -eq $wifiEndpoint } | Select-Object -First 1)
+        if ($preferredWifi.Count -eq 1) {
+            return [pscustomobject]@{
+                Id = $preferredWifi[0].Id
+                Raw = $preferredWifi[0].Raw
+                Transport = "wifi"
+                ConnectionStrategy = "wifi-already-connected"
+                WifiEndpoint = $wifiEndpoint
+                PromotionError = ""
+            }
+        }
+
+        $list = ($wifiDevices | ForEach-Object { $_.Raw }) -join "; "
+        throw "Mais de um dispositivo ADB Wi-Fi autorizado encontrado. Informe -DeviceId. Dispositivos: $list"
+    }
+
+    return [pscustomobject]@{
+        Id = $wifiDevices[0].Id
+        Raw = $wifiDevices[0].Raw
+        Transport = "wifi"
+        ConnectionStrategy = if ($wifiDevices[0].Id -eq $wifiEndpoint) { "wifi-fallback" } else { "wifi-existing-session" }
+        WifiEndpoint = $wifiEndpoint
+        PromotionError = ""
+    }
+}
+
+function Get-YouObdAuthorizedDevices {
+    param(
+        [switch]$TryWifiFallback,
+        [string]$WifiDeviceIp = "",
+        [int]$AdbWifiPort = 0
+    )
+
+    $devices = @(Get-YouObdAdbDeviceEntries)
+    if ($devices.Count -gt 0 -or -not $TryWifiFallback) {
+        return $devices
+    }
+
+    try {
+        Connect-YouObdAdbWifi -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort | Out-Null
+    }
+    catch {
+    }
+
+    return @(Get-YouObdAdbDeviceEntries)
 }
 
 function Resolve-YouObdDeviceId {
-    param([string]$DeviceId = "")
+    param(
+        [string]$DeviceId = "",
+        [switch]$AllowWifiFallback = $true,
+        [string]$WifiDeviceIp = "",
+        [int]$AdbWifiPort = 0,
+        [switch]$PromoteUsbToWifi = $true
+    )
 
-    if (-not [string]::IsNullOrWhiteSpace($DeviceId)) {
-        return $DeviceId
-    }
-
-    $devices = @(Get-YouObdAuthorizedDevices)
-    if ($devices.Count -eq 0) {
-        throw "Nenhum dispositivo ADB autorizado encontrado."
-    }
-
-    if ($devices.Count -gt 1) {
-        $list = ($devices | ForEach-Object { $_.Raw }) -join "; "
-        throw "Mais de um dispositivo ADB autorizado encontrado. Informe -DeviceId. Dispositivos: $list"
-    }
-
-    return $devices[0].Id
+    return (
+        Resolve-YouObdDeviceConnection `
+            -DeviceId $DeviceId `
+            -AllowWifiFallback:$AllowWifiFallback `
+            -WifiDeviceIp $WifiDeviceIp `
+            -AdbWifiPort $AdbWifiPort `
+            -PromoteUsbToWifi:$PromoteUsbToWifi
+    ).Id
 }
 
 function Invoke-YouObdAdb {

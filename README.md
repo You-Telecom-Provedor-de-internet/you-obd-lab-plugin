@@ -11,12 +11,19 @@ Plugin local do Codex para transformar o ecossistema YOU em um laboratorio de va
 - adaptadores `ELM327` e `OBDLink`
 - gateway BLE e hardware de bancada
 
-Credencial dedicada padrao da API do simulador para automacao:
+Fonte de verdade das credenciais da API do simulador para automacao local:
 
-- usuario: `api`
-- senha: `obdapi2026`
+- `scripts/local-api-credentials.json`
+- `YOU_OBD_API_USER`
+- `YOU_OBD_API_PASSWORD`
+- `C:\www\YouSimuladorOBD\firmware\include\config.h`
 
-Para ambiente local com credenciais mais fortes, os scripts tambem aceitam:
+No laboratorio atual validado em `2026-04-08`, a credencial alinhada ao firmware e:
+
+- usuario: `youobd-core`
+- senha: `YouOBD.RevA@2026#Core`
+
+Os scripts continuam aceitando override por ambiente:
 
 - `YOU_OBD_API_USER`
 - `YOU_OBD_API_PASSWORD`
@@ -26,8 +33,8 @@ Formato do arquivo local:
 
 ```json
 {
-  "user": "youapi",
-  "password": "sua-senha-forte"
+  "user": "youobd-core",
+  "password": "YouOBD.RevA@2026#Core"
 }
 ```
 
@@ -223,10 +230,34 @@ Gerar snapshot completo da bancada:
 powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\collect-you-obd-lab-snapshot.ps1"
 ```
 
+Politica ADB padrao dos scripts de bancada:
+
+- tenta USB primeiro
+- se nao achar USB, tenta Wi-Fi em `192.168.1.99:5555`
+- se achar USB, promove para Wi-Fi por padrao e cai de volta para USB se a promocao falhar
+- quando a promocao falha, o relatorio registra a falha e a estrategia final usada
+- para forcar USB puro: `-PromoteUsbToWifi:$false`
+- parametros disponiveis: `-WifiDeviceIp`, `-AdbWifiPort`, `-DeviceId`, `-PromoteUsbToWifi`
+
 Monitorar o status da API em loop:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\watch-you-obd-status.ps1"
+```
+
+Conexao ADB do celular:
+
+- o plugin agora trabalha em politica `USB primeiro`
+- se nao encontrar o celular no `adb` por USB, tenta `ADB over Wi-Fi` em `192.168.1.99:5555`
+- se o USB estiver presente, voce pode promover a sessao para Wi-Fi com `-PromoteUsbToWifi`
+- para outro IP fixo, passe `-WifiDeviceIp "<ip-do-celular>"`
+
+Exemplo de snapshot promovendo USB para Wi-Fi:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\collect-you-obd-lab-snapshot.ps1" `
+  -PromoteUsbToWifi `
+  -WifiDeviceIp "192.168.1.99"
 ```
 
 Rodar uma validacao de bancada completa com simulador + Android + relatorio:
@@ -234,6 +265,8 @@ Rodar uma validacao de bancada completa com simulador + Android + relatorio:
 ```powershell
 powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-obd-bench-validation.ps1" `
   -SimulatorBaseUrl "http://192.168.1.11" `
+  -WifiDeviceIp "192.168.1.99" `
+  -PromoteUsbToWifi `
   -ProfileId "peugeot_308_16thp" `
   -ModeId 2 `
   -ScenarioId "superaquecimento" `

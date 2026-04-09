@@ -45,6 +45,8 @@ Do not replace real OBD validation with API-only validation when the user is tes
 ### 3. Validate on Android
 
 - Use `adb devices` first.
+- If USB is absent, allow the lab scripts to try `ADB over Wi-Fi` on `192.168.1.99:5555`.
+- If USB is present and you need cable-free validation, allow promotion with `adb tcpip 5555` followed by Wi-Fi connect.
 - When the phone is attached and authorized, use `logcat`, screenshots, and app relaunches to confirm real behavior.
 - Prefer the app's OBD logs over guesswork when comparing protocol or scanner behavior.
 
