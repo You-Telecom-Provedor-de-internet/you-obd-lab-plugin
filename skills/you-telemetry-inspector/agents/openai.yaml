@@ -1,0 +1,4 @@
+interface:
+  display_name: "You Telemetry Inspector"
+  short_description: "Resume e correlaciona logs, traces e telemetria."
+  default_prompt: "Use $you-telemetry-inspector para correlacionar logcat, serial, WebSocket e telemetria antes da decisao final."

@@ -64,11 +64,11 @@ Always say whether the result was verified by:
 
 Prefer this structure:
 
-- Simulator setup: profile, mode, scenario, DTCs, and protocol
-- Oracle state: what internal APIs or diagnostics showed
-- Intended external behavior: what scanner, app, or tester should observe
-- Change made: files or logic updated
-- Risks and follow-ups: what still needs consumer-side validation
+1. Scenario proposed: profile, mode, scenario, DTCs, protocol, and intended behavior
+2. Modules impacted: simulator files, APIs, diagnostic generators, or helpers touched
+3. Contracts: API payloads, DTC shapes, freeze frame, and externally visible behavior
+4. How to validate: oracle checks, simulated diagnostics, OBD validation, and downstream checks
+5. Limitations: what is still unproven outside the simulator or depends on external consumers
 
 ## Handoff Guidance
 

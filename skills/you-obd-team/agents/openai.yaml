@@ -1,0 +1,4 @@
+interface:
+  display_name: "You OBD Team"
+  short_description: "Abre a equipe real de subagentes do laboratorio."
+  default_prompt: "Use $you-obd-team para iniciar a equipe real de agentes do YOU OBD Lab com coordenador, especialistas por dominio e reviewer."

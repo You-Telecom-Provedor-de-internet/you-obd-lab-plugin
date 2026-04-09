@@ -1,0 +1,4 @@
+interface:
+  display_name: "You Contract Guardian"
+  short_description: "Congela contratos JSON, rotas e WebSocket sem drift."
+  default_prompt: "Use $you-contract-guardian para revisar payloads, rotas, eventos e compatibilidade entre produtor e consumidor."

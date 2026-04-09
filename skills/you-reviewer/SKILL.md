@@ -57,10 +57,11 @@ For each important behavior, ask:
 
 Prefer this structure:
 
-- Findings: concrete regressions, risks, or contract issues
-- Validation gaps: what was not exercised or still lacks device coverage
-- Residual risk: what could still fail in production or on the bench
-- Recommended next checks: the smallest useful follow-up validations
+1. Risks found: concrete regressions, contract drift, or technical risks
+2. Inconsistencies: mismatches between implementation, contracts, docs, or evidence
+3. Possible regressions: behaviors that may have broken or remain under-validated
+4. Recommended tests: the smallest set of checks to reduce uncertainty
+5. Severity: prioritize each issue by impact and confidence
 
 ## Review Heuristics
 
@@ -68,6 +69,7 @@ Prefer this structure:
 - Treat Android transport changes as incomplete without `ADB`, logs, or device evidence
 - Treat simulator changes as incomplete without stating whether proof came from API, OBD, or both
 - Treat tester changes as incomplete without clarifying `TestResult` and `Reading` compatibility
+- Treat flows that emit both `service_order_id` and `os_code` as incomplete unless review confirms the UUID is authoritative and success is not inferred from transport alone
 
 ## Handoff Guidance
 

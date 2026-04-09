@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 - 2026-04-07
+
+- adiciona a skill `you-obd-team` como entrada padrao para abrir a equipe real de agentes do plugin
+- adiciona perfis globais de agentes customizados para `you-orchestrator`, `youautotester-lab`, `you-android-gateway`, `you-obd-simulator` e `you-reviewer`
+- atualiza `sync-to-codex.ps1` para copiar o plugin, registrar no marketplace local, instalar os agentes globais e manter uma regra persistente em `C:\Users\haise\.codex\AGENTS.md`
+- adiciona `fixtures/lab-fixtures.json` e `invoke-you-obd-fixture-suite.ps1` para rodadas repetiveis por fixture e suites de validacao
+- amplia `invoke-you-obd-bench-validation.ps1` com suporte a `FixtureId`, checks estruturados, fases do runner, categorias de falha e comparacao oracle/UI
+- endurece a automacao Android com foreground checks, grant de permissoes e navegacao mais robusta no app
+- documenta handoffs de tensao instavel para Android gateway e simulador
+- atualiza README, prompts e skills para o novo fluxo multi-agent e fixture-driven
+
 ## 0.3.4 - 2026-04-05
 
 - permite arquivo local `scripts/local-api-credentials.json` fora do Git

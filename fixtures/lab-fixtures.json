@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "fixtures": [
+    {
+      "fixture_id": "can_kia_clean",
+      "description": "Kia Carens baseline on CAN with no active DTCs.",
+      "simulator_profile_id": "kia_carens_20",
+      "protocol_id": 0,
+      "mode_id": 0,
+      "scenario_id": "",
+      "manual_dtcs": [],
+      "expected_vehicle_label_app": "KIA CARENS EX 2.0L",
+      "expected_protocol_label": "CAN 11b 500k",
+      "expected_core_pids": [
+        "Rotacao",
+        "Temperatura",
+        "MAP",
+        "Bateria"
+      ],
+      "expected_ui_markers": [
+        "LAB_DIAGNOSTICS",
+        "LAB_SCANNER",
+        "Scanner Tecnico|Scanner Técnico",
+        "Leitura ativa",
+        "Persistencia|Persistência"
+      ],
+      "expected_oracle_fields": {
+        "profile_id": "kia_carens_20",
+        "protocol_id": 0,
+        "profile_turbo": false
+      }
+    },
+    {
+      "fixture_id": "can_kia_dtc",
+      "description": "Kia Carens on CAN with manual DTC injection.",
+      "simulator_profile_id": "kia_carens_20",
+      "protocol_id": 0,
+      "mode_id": 0,
+      "scenario_id": "",
+      "manual_dtcs": [
+        "P0300",
+        "P0420"
+      ],
+      "expected_vehicle_label_app": "KIA CARENS EX 2.0L",
+      "expected_protocol_label": "CAN 11b 500k",
+      "expected_core_pids": [
+        "Rotacao",
+        "Temperatura",
+        "MAP",
+        "Bateria"
+      ],
+      "expected_ui_markers": [
+        "LAB_DIAGNOSTICS",
+        "LAB_SCANNER",
+        "Scanner Tecnico|Scanner Técnico",
+        "Leitura ativa",
+        "Persistencia|Persistência"
+      ],
+      "expected_oracle_fields": {
+        "profile_id": "kia_carens_20",
+        "protocol_id": 0,
+        "profile_turbo": false
+      }
+    },
+    {
+      "fixture_id": "can_thp_urban",
+      "description": "Peugeot THP on CAN in urban mode to validate turbo telemetry.",
+      "simulator_profile_id": "peugeot_308_16thp",
+      "protocol_id": 0,
+      "mode_id": 2,
+      "scenario_id": "",
+      "manual_dtcs": [],
+      "expected_vehicle_label_app": "PEUGEOT 308",
+      "expected_protocol_label": "CAN 11b 500k",
+      "expected_core_pids": [
+        "Rotacao",
+        "Temperatura",
+        "MAP",
+        "Bateria"
+      ],
+      "expected_ui_markers": [
+        "LAB_DIAGNOSTICS",
+        "LAB_SCANNER",
+        "Scanner Tecnico|Scanner Técnico",
+        "Leitura ativa",
+        "Persistencia|Persistência"
+      ],
+      "expected_oracle_fields": {
+        "profile_id": "peugeot_308_16thp",
+        "protocol_id": 0,
+        "profile_turbo": true
+      }
+    },
+    {
+      "fixture_id": "iso_uno_clean",
+      "description": "Fiat Uno on ISO 9141-2 with clean diagnostic state.",
+      "simulator_profile_id": "fiat_uno_10",
+      "protocol_id": 4,
+      "mode_id": 0,
+      "scenario_id": "",
+      "manual_dtcs": [],
+      "expected_vehicle_label_app": "FIAT UNO",
+      "expected_protocol_label": "ISO 9141-2",
+      "expected_core_pids": [
+        "Rotacao",
+        "Temperatura",
+        "MAP",
+        "Bateria"
+      ],
+      "expected_ui_markers": [
+        "LAB_DIAGNOSTICS",
+        "LAB_SCANNER",
+        "Scanner Tecnico|Scanner Técnico",
+        "Leitura ativa",
+        "Persistencia|Persistência"
+      ],
+      "expected_oracle_fields": {
+        "profile_id": "fiat_uno_10",
+        "protocol_id": 4,
+        "profile_turbo": false
+      }
+    }
+  ]
+}

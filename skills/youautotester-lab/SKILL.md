@@ -9,7 +9,7 @@ Use this skill when the tester is the product under investigation. Keep the lab 
 
 ## Primary Area
 
-- `C:\www\YouSimuladorOBD\firmware\YouAutoTester`
+- `C:\www\YouAutoCarvAPP2\firmware\YouAutoTester`
 - Local WebUI and any local HTTP or WebSocket surface owned by the tester
 - Instrument adapters and acquisition flows used by the tester
 
@@ -61,11 +61,11 @@ Use this skill when the tester is the product under investigation. Keep the lab 
 
 Prefer this structure:
 
-- Target area: firmware, WebUI, API, WebSocket, or integration point
-- Current contract: how `TestResult`, `Reading`, or events behave now
-- Proposed change: what changes and why
-- Validation: what was built, tested, or still needs hardware confirmation
-- Open risks: contract drift, timing, or instrumentation gaps
+1. Files created: new firmware, WebUI, API, or support files added
+2. Files changed: existing tester files touched and why
+3. Behavior changes: what changed in `YouAutoTester` behavior
+4. Payloads/contracts: `TestResult`, `Reading`, local API, or WebSocket shapes affected
+5. How to test: build, test, simulation, and bench validation steps
 
 ## Handoff Guidance
 

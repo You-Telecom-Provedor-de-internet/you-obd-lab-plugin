@@ -38,6 +38,8 @@ Use this skill when the Android device and its transport layers are the critical
 ### 1. Establish device truth
 
 - Run `adb devices` first when a real device is part of the task
+- Prefer USB discovery first, then fall back to `ADB over Wi-Fi` on `192.168.1.99:5555` when the cable path is unavailable
+- When USB is available but the run should continue cable-free, promote the session to Wi-Fi instead of treating that as a separate device story
 - Check authorization, app install state, and log availability
 - State clearly when the phone is unavailable and validation is therefore partial
 
@@ -67,11 +69,11 @@ Always summarize:
 
 Prefer this structure:
 
-- Device and transport setup: phone, build, pairing state, adapter or IKRO path
-- Evidence: `adb`, logcat, screenshots, captures, or traces used
-- Reading flow: source, mapping, and destination
-- Change or diagnosis: what failed or what was updated
-- Risks and next checks: what still depends on a real device or downstream validation
+1. Gateway architecture: source, transport, forwarding path, and Android role
+2. Modules affected: app layers, gateway code, device tools, or transport adapters touched
+3. Contracts used: payloads, BLE messages, local transport shapes, and downstream expectations
+4. Bluetooth risks: pairing, permissions, instability, or device-specific uncertainty
+5. Test plan: `adb`, logcat, screenshots, capture traces, and real-device validation steps
 
 ## Handoff Guidance
 

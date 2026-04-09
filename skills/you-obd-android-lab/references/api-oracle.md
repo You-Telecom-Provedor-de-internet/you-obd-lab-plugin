@@ -21,10 +21,13 @@ Use the simulator API as the internal oracle while keeping real OBD as the compa
 
 Use it for quick truth:
 
-- active protocol
+- active protocol id in `protocol_id`
+- display protocol label in `protocol`
 - profile id and selected profile metadata
 - current sensor snapshot
 - active mode
+- active scenario slug in `scenario_id`
+- legacy numeric scenario in `scenario_numeric_id`
 - VIN
 - device and OTA context
 
@@ -39,6 +42,9 @@ Use it for rich diagnosis and app comparison:
 - probable root cause
 - freeze frame
 - freeze frame history
-- scenario id
+- scenario id as slug
+- legacy numeric scenario in `scenario_numeric_id`
+- protocol id as the canonical diagnostic reference when exposed
+- protocol text only as display support
 - control layers
 - precedence notice and message

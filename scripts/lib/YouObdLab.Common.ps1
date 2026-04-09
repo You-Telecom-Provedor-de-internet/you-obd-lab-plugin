@@ -20,6 +20,117 @@ function Get-YouObdAdbPath {
     throw "adb nao encontrado. Instale Android platform-tools ou ajuste o PATH."
 }
 
+function Get-YouObdAdbWifiHost {
+    foreach ($candidate in @($env:YOU_OBD_ADB_WIFI_HOST, $env:YOU_OBD_PHONE_IP, "192.168.1.99")) {
+        $text = [string]$candidate
+        if (-not [string]::IsNullOrWhiteSpace($text)) {
+            return $text.Trim()
+        }
+    }
+
+    throw "Host Wi-Fi do ADB nao configurado."
+}
+
+function Get-YouObdAdbWifiPort {
+    $parsed = 0
+    if ([int]::TryParse([string]$env:YOU_OBD_ADB_WIFI_PORT, [ref]$parsed) -and $parsed -gt 0) {
+        return $parsed
+    }
+
+    return 5555
+}
+
+function Get-YouObdAdbEndpoint {
+    param(
+        [string]$AdbWifiHost = "",
+        [int]$AdbWifiPort = 0
+    )
+
+    if ([string]::IsNullOrWhiteSpace($AdbWifiHost)) {
+        $AdbWifiHost = Get-YouObdAdbWifiHost
+    }
+    if ($AdbWifiPort -le 0) {
+        $AdbWifiPort = Get-YouObdAdbWifiPort
+    }
+
+    $AdbWifiHost = $AdbWifiHost.Trim()
+    if ($AdbWifiHost -match ":\d+$") {
+        return $AdbWifiHost
+    }
+
+    return "${AdbWifiHost}:$AdbWifiPort"
+}
+
+function Test-YouObdNetworkDeviceId {
+    param([string]$DeviceId)
+
+    return -not [string]::IsNullOrWhiteSpace($DeviceId) -and $DeviceId -match "^[^:\s]+:\d+$"
+}
+
+function Get-YouObdDeviceTransport {
+    param([string]$DeviceId)
+
+    if (Test-YouObdNetworkDeviceId -DeviceId $DeviceId) {
+        return "wifi"
+    }
+
+    return "usb"
+}
+
+function Test-YouObdTcpEndpointReachable {
+    param(
+        [string]$TcpHost,
+        [int]$Port,
+        [int]$TimeoutMilliseconds = 2500
+    )
+
+    if ([string]::IsNullOrWhiteSpace($TcpHost) -or $Port -le 0) {
+        return $false
+    }
+
+    $client = $null
+    $async = $null
+    try {
+        $client = New-Object System.Net.Sockets.TcpClient
+        $async = $client.BeginConnect($TcpHost, $Port, $null, $null)
+        if (-not $async.AsyncWaitHandle.WaitOne($TimeoutMilliseconds, $false)) {
+            return $false
+        }
+
+        $client.EndConnect($async)
+        return $true
+    }
+    catch {
+        return $false
+    }
+    finally {
+        if ($null -ne $async) {
+            $async.AsyncWaitHandle.Close()
+        }
+        if ($null -ne $client) {
+            $client.Close()
+        }
+    }
+}
+
+function Find-YouObdAuthorizedDevice {
+    param(
+        [object[]]$Devices,
+        [string]$DeviceId = "",
+        [string]$Transport = ""
+    )
+
+    $matches = @($Devices)
+    if (-not [string]::IsNullOrWhiteSpace($DeviceId)) {
+        $matches = @($matches | Where-Object { $_.Id -eq $DeviceId })
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Transport)) {
+        $matches = @($matches | Where-Object { $_.Transport -eq $Transport })
+    }
+
+    return ($matches | Select-Object -First 1)
+}
+
 function Get-YouObdCurlPath {
     $command = Get-Command "curl.exe" -ErrorAction SilentlyContinue
     if ($command) {
@@ -31,9 +142,9 @@ function Get-YouObdCurlPath {
 
 function Get-YouObdApiCredentialDefaults {
     $defaults = @{
-        User = "api"
-        Password = "obdapi2026"
-        Source = "factory"
+        User = "youobd-core"
+        Password = "YouOBD.RevA@2026#Core"
+        Source = "firmware-default"
     }
 
     $localCredentialsPath = Join-Path (Split-Path $PSScriptRoot -Parent) "local-api-credentials.json"
@@ -270,7 +381,11 @@ function Get-YouObdObjectValue {
     return $property.Value
 }
 
-function Get-YouObdAuthorizedDevices {
+function Get-YouObdAdbDeviceEntries {
+    param(
+        [switch]$IncludeOffline
+    )
+
     $adb = Get-YouObdAdbPath
     $result = Invoke-YouObdExternal -FilePath $adb -Arguments @("devices", "-l")
     if ($result.ExitCode -ne 0) {
@@ -285,35 +400,259 @@ function Get-YouObdAuthorizedDevices {
             continue
         }
 
-        if ($text -match "^(?<id>\S+)\s+device\b") {
+        if ($text -match "^(?<id>\S+)\s+(?<state>\S+)\b") {
+            $state = $matches["state"].Trim().ToLowerInvariant()
+            if (-not $IncludeOffline -and $state -ne "device") {
+                continue
+            }
+
             $devices += [pscustomobject]@{
                 Id = $matches["id"]
+                State = $state
                 Raw = $text.Trim()
+                Transport = Get-YouObdDeviceTransport -DeviceId $matches["id"]
+                IsTcp = $matches["id"] -match ":\d+$"
             }
         }
     }
 
-    return $devices
+    return @($devices)
+}
+
+function Get-YouObdAdbWifiEndpoint {
+    param(
+        [string]$WifiDeviceIp = "",
+        [int]$AdbWifiPort = 0
+    )
+
+    if ([string]::IsNullOrWhiteSpace($WifiDeviceIp)) {
+        $WifiDeviceIp = Get-YouObdAdbWifiHost
+    }
+    if ($AdbWifiPort -le 0) {
+        $AdbWifiPort = Get-YouObdAdbWifiPort
+    }
+
+    $WifiDeviceIp = $WifiDeviceIp.Trim()
+    return (Get-YouObdAdbEndpoint -AdbWifiHost $WifiDeviceIp -AdbWifiPort $AdbWifiPort)
+}
+
+function Connect-YouObdAdbWifi {
+    param(
+        [string]$WifiDeviceIp = "",
+        [int]$AdbWifiPort = 0,
+        [string]$UsbDeviceId = ""
+    )
+
+    $adb = Get-YouObdAdbPath
+    $endpoint = Get-YouObdAdbWifiEndpoint -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort
+    if ($AdbWifiPort -le 0) {
+        $AdbWifiPort = Get-YouObdAdbWifiPort
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($UsbDeviceId)) {
+        $tcpipResult = Invoke-YouObdExternal -FilePath $adb -Arguments @("-s", $UsbDeviceId, "tcpip", "$AdbWifiPort")
+        if ($tcpipResult.ExitCode -ne 0) {
+            $joined = ($tcpipResult.Output -join "`n").Trim()
+            throw "Falha promovendo USB para ADB Wi-Fi no dispositivo ${UsbDeviceId}: $joined"
+        }
+        Start-Sleep -Seconds 2
+    }
+
+    $existingWifiDevice = Find-YouObdAuthorizedDevice -Devices @(Get-YouObdAdbDeviceEntries) -DeviceId $endpoint
+    if ($null -ne $existingWifiDevice) {
+        return $existingWifiDevice
+    }
+
+    if ($endpoint -match '^(?<host>[^:]+):(?<port>\d+)$') {
+        $tcpHost = $matches["host"]
+        $tcpPort = [int]$matches["port"]
+        if (-not (Test-YouObdTcpEndpointReachable -TcpHost $tcpHost -Port $tcpPort)) {
+            throw "Dispositivo Wi-Fi $endpoint nao respondeu na porta ADB."
+        }
+    }
+
+    $connectResult = Invoke-YouObdExternal -FilePath $adb -Arguments @("connect", $endpoint)
+    $joined = ($connectResult.Output -join "`n").Trim()
+    $connectOk = $connectResult.ExitCode -eq 0 -or
+        $joined -match 'already connected|already connected to|connected to'
+    if (-not $connectOk) {
+        throw "Falha conectando ADB via Wi-Fi em ${endpoint}: $joined"
+    }
+
+    $deadline = (Get-Date).AddSeconds(12)
+    do {
+        $wifiDevice = Find-YouObdAuthorizedDevice -Devices @(Get-YouObdAdbDeviceEntries) -DeviceId $endpoint
+        if ($null -ne $wifiDevice) {
+            return $wifiDevice
+        }
+
+        Start-Sleep -Milliseconds 700
+    } while ((Get-Date) -lt $deadline)
+
+    if ($null -eq $wifiDevice) {
+        throw "ADB conectou em $endpoint, mas o dispositivo nao ficou autorizado no estado device."
+    }
+}
+
+function Resolve-YouObdDeviceConnection {
+    param(
+        [string]$DeviceId = "",
+        [switch]$AllowWifiFallback = $true,
+        [string]$WifiDeviceIp = "",
+        [int]$AdbWifiPort = 0,
+        [switch]$PromoteUsbToWifi = $true
+    )
+
+    $wifiEndpoint = Get-YouObdAdbWifiEndpoint -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort
+    if (-not [string]::IsNullOrWhiteSpace($DeviceId)) {
+        if (-not (Test-YouObdNetworkDeviceId -DeviceId $DeviceId) -and $PromoteUsbToWifi) {
+            try {
+                $wifiDevice = Connect-YouObdAdbWifi -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort -UsbDeviceId $DeviceId
+                return [pscustomobject]@{
+                    Id = $wifiDevice.Id
+                    Raw = $wifiDevice.Raw
+                    Transport = "wifi"
+                    ConnectionStrategy = "explicit-usb-promoted-to-wifi"
+                    WifiEndpoint = $wifiEndpoint
+                    PromotionError = ""
+                }
+            }
+            catch {
+                return [pscustomobject]@{
+                    Id = $DeviceId
+                    Raw = $DeviceId
+                    Transport = "usb"
+                    ConnectionStrategy = "explicit-usb-promotion-failed"
+                    WifiEndpoint = $wifiEndpoint
+                    PromotionError = $_.Exception.Message
+                }
+            }
+        }
+
+        return [pscustomobject]@{
+            Id = $DeviceId
+            Raw = $DeviceId
+            Transport = if (Test-YouObdNetworkDeviceId -DeviceId $DeviceId) { "wifi" } else { "usb" }
+            ConnectionStrategy = "explicit-device-id"
+            WifiEndpoint = $wifiEndpoint
+            PromotionError = ""
+        }
+    }
+
+    $devices = @(Get-YouObdAuthorizedDevices -TryWifiFallback:$AllowWifiFallback -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort)
+    if ($devices.Count -eq 0) {
+        throw "Nenhum dispositivo ADB autorizado encontrado (USB ou Wi-Fi em $wifiEndpoint)."
+    }
+
+    $usbDevices = @($devices | Where-Object { -not $_.IsTcp })
+    $wifiDevices = @($devices | Where-Object { $_.IsTcp })
+
+    if ($usbDevices.Count -gt 0) {
+        if ($usbDevices.Count -gt 1) {
+            $list = ($usbDevices | ForEach-Object { $_.Raw }) -join "; "
+            throw "Mais de um dispositivo USB ADB autorizado encontrado. Informe -DeviceId. Dispositivos: $list"
+        }
+
+        $usbDevice = $usbDevices[0]
+        if ($PromoteUsbToWifi) {
+            try {
+                $wifiDevice = Connect-YouObdAdbWifi -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort -UsbDeviceId $usbDevice.Id
+                return [pscustomobject]@{
+                    Id = $wifiDevice.Id
+                    Raw = $wifiDevice.Raw
+                    Transport = "wifi"
+                    ConnectionStrategy = "usb-promoted-to-wifi"
+                    WifiEndpoint = $wifiEndpoint
+                    PromotionError = ""
+                }
+            }
+            catch {
+                return [pscustomobject]@{
+                    Id = $usbDevice.Id
+                    Raw = $usbDevice.Raw
+                    Transport = "usb"
+                    ConnectionStrategy = "usb-promotion-failed"
+                    WifiEndpoint = $wifiEndpoint
+                    PromotionError = $_.Exception.Message
+                }
+            }
+        }
+
+        return [pscustomobject]@{
+            Id = $usbDevice.Id
+            Raw = $usbDevice.Raw
+            Transport = "usb"
+            ConnectionStrategy = "usb-only"
+            WifiEndpoint = $wifiEndpoint
+            PromotionError = ""
+        }
+    }
+
+    if ($wifiDevices.Count -gt 1) {
+        $preferredWifi = @($wifiDevices | Where-Object { $_.Id -eq $wifiEndpoint } | Select-Object -First 1)
+        if ($preferredWifi.Count -eq 1) {
+            return [pscustomobject]@{
+                Id = $preferredWifi[0].Id
+                Raw = $preferredWifi[0].Raw
+                Transport = "wifi"
+                ConnectionStrategy = "wifi-already-connected"
+                WifiEndpoint = $wifiEndpoint
+                PromotionError = ""
+            }
+        }
+
+        $list = ($wifiDevices | ForEach-Object { $_.Raw }) -join "; "
+        throw "Mais de um dispositivo ADB Wi-Fi autorizado encontrado. Informe -DeviceId. Dispositivos: $list"
+    }
+
+    return [pscustomobject]@{
+        Id = $wifiDevices[0].Id
+        Raw = $wifiDevices[0].Raw
+        Transport = "wifi"
+        ConnectionStrategy = if ($wifiDevices[0].Id -eq $wifiEndpoint) { "wifi-fallback" } else { "wifi-existing-session" }
+        WifiEndpoint = $wifiEndpoint
+        PromotionError = ""
+    }
+}
+
+function Get-YouObdAuthorizedDevices {
+    param(
+        [switch]$TryWifiFallback,
+        [string]$WifiDeviceIp = "",
+        [int]$AdbWifiPort = 0
+    )
+
+    $devices = @(Get-YouObdAdbDeviceEntries)
+    if ($devices.Count -gt 0 -or -not $TryWifiFallback) {
+        return $devices
+    }
+
+    try {
+        Connect-YouObdAdbWifi -WifiDeviceIp $WifiDeviceIp -AdbWifiPort $AdbWifiPort | Out-Null
+    }
+    catch {
+    }
+
+    return @(Get-YouObdAdbDeviceEntries)
 }
 
 function Resolve-YouObdDeviceId {
-    param([string]$DeviceId = "")
+    param(
+        [string]$DeviceId = "",
+        [switch]$AllowWifiFallback = $true,
+        [string]$WifiDeviceIp = "",
+        [int]$AdbWifiPort = 0,
+        [switch]$PromoteUsbToWifi = $true
+    )
 
-    if (-not [string]::IsNullOrWhiteSpace($DeviceId)) {
-        return $DeviceId
-    }
-
-    $devices = @(Get-YouObdAuthorizedDevices)
-    if ($devices.Count -eq 0) {
-        throw "Nenhum dispositivo ADB autorizado encontrado."
-    }
-
-    if ($devices.Count -gt 1) {
-        $list = ($devices | ForEach-Object { $_.Raw }) -join "; "
-        throw "Mais de um dispositivo ADB autorizado encontrado. Informe -DeviceId. Dispositivos: $list"
-    }
-
-    return $devices[0].Id
+    return (
+        Resolve-YouObdDeviceConnection `
+            -DeviceId $DeviceId `
+            -AllowWifiFallback:$AllowWifiFallback `
+            -WifiDeviceIp $WifiDeviceIp `
+            -AdbWifiPort $AdbWifiPort `
+            -PromoteUsbToWifi:$PromoteUsbToWifi
+    ).Id
 }
 
 function Invoke-YouObdAdb {
@@ -384,6 +723,7 @@ function Start-YouObdApp {
 
     $activity = Get-YouObdLauncherActivity -DeviceId $DeviceId -PackageName $PackageName
     Invoke-YouObdAdb -DeviceId $DeviceId -Arguments @("shell", "am", "start", "-W", "-n", $activity) | Out-Null
+    Wait-YouObdForegroundPackage -DeviceId $DeviceId -PackageName $PackageName -TimeoutSeconds 10 | Out-Null
 }
 
 function Clear-YouObdLogcat {
@@ -425,6 +765,35 @@ function Get-YouObdPackageInfo {
         VersionName = $versionName
         VersionCode = $versionCode
         Raw = $joined
+    }
+}
+
+function Grant-YouObdRuntimePermissions {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName,
+        [string[]]$Permissions = @(
+            'android.permission.POST_NOTIFICATIONS',
+            'android.permission.BLUETOOTH_CONNECT',
+            'android.permission.BLUETOOTH_SCAN',
+            'android.permission.ACCESS_FINE_LOCATION',
+            'android.permission.ACCESS_COARSE_LOCATION'
+        )
+    )
+
+    foreach ($permission in $Permissions) {
+        try {
+            Invoke-YouObdAdb -DeviceId $DeviceId -Arguments @(
+                'shell',
+                'pm',
+                'grant',
+                $PackageName,
+                $permission
+            ) | Out-Null
+        }
+        catch {
+            # Ignore permissions not requested by this build/device combination.
+        }
     }
 }
 
@@ -655,6 +1024,118 @@ function Get-YouObdDisplaySize {
     throw "Nao foi possivel determinar a resolucao da tela do dispositivo."
 }
 
+function Get-YouObdForegroundPackage {
+    param([string]$DeviceId)
+
+    $patterns = @(
+        "mCurrentFocus.+?\s([A-Za-z0-9._$-]+)/[A-Za-z0-9._$-]+",
+        "topResumedActivity.+?\s([A-Za-z0-9._$-]+)/[A-Za-z0-9._$-]+"
+    )
+    $commands = @(
+        @("shell", "dumpsys", "window", "windows"),
+        @("shell", "dumpsys", "activity", "activities")
+    )
+
+    foreach ($arguments in $commands) {
+        $output = Invoke-YouObdAdb -DeviceId $DeviceId -Arguments $arguments
+        foreach ($line in $output) {
+            $text = [string]$line
+            foreach ($pattern in $patterns) {
+                if ($text -match $pattern) {
+                    return $matches[1].Trim()
+                }
+            }
+        }
+    }
+
+    return ""
+}
+
+function Wait-YouObdForegroundPackage {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName,
+        [int]$TimeoutSeconds = 12,
+        [int]$PollMilliseconds = 700
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    do {
+        $foregroundPackage = Get-YouObdForegroundPackage -DeviceId $DeviceId
+        if ($foregroundPackage -eq $PackageName) {
+            return $foregroundPackage
+        }
+        Start-Sleep -Milliseconds $PollMilliseconds
+    } while ((Get-Date) -lt $deadline)
+
+    return ""
+}
+
+function Handle-YouObdPermissionPrompt {
+    param(
+        [string]$DeviceId,
+        [int]$TimeoutSeconds = 8
+    )
+
+    $allowNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern 'Permitir|Allow|Enquanto.*uso|While using|Continuar|OK' -TimeoutSeconds $TimeoutSeconds -PollMilliseconds 600
+    if ($null -eq $allowNode) {
+        return $false
+    }
+
+    $center = Get-YouObdBoundsCenter -Bounds $allowNode.Bounds
+    Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+    Start-Sleep -Seconds 2
+    return $true
+}
+
+function Ensure-YouObdForegroundApp {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName,
+        [int]$MaxAttempts = 3
+    )
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $foregroundPackage = Get-YouObdForegroundPackage -DeviceId $DeviceId
+        if ($foregroundPackage -eq $PackageName) {
+            return
+        }
+
+        if ($foregroundPackage -eq "com.android.settings") {
+            Invoke-YouObdAdb -DeviceId $DeviceId -Arguments @("shell", "input", "keyevent", "4") | Out-Null
+            Start-Sleep -Seconds 2
+            $foregroundPackage = Wait-YouObdForegroundPackage -DeviceId $DeviceId -PackageName $PackageName -TimeoutSeconds 4
+            if ($foregroundPackage -eq $PackageName) {
+                return
+            }
+        }
+
+        if ($foregroundPackage -eq "com.google.android.permissioncontroller" -or
+            $foregroundPackage -eq "com.android.permissioncontroller") {
+            if (Handle-YouObdPermissionPrompt -DeviceId $DeviceId) {
+                $foregroundPackage = Wait-YouObdForegroundPackage -DeviceId $DeviceId -PackageName $PackageName -TimeoutSeconds 6
+                if ($foregroundPackage -eq $PackageName) {
+                    return
+                }
+            }
+        }
+
+        Start-YouObdApp -DeviceId $DeviceId -PackageName $PackageName
+        Start-Sleep -Seconds 2
+        $foregroundPackage = Get-YouObdForegroundPackage -DeviceId $DeviceId
+        if ($foregroundPackage -eq "com.google.android.permissioncontroller" -or
+            $foregroundPackage -eq "com.android.permissioncontroller") {
+            Handle-YouObdPermissionPrompt -DeviceId $DeviceId | Out-Null
+        }
+        $foregroundPackage = Wait-YouObdForegroundPackage -DeviceId $DeviceId -PackageName $PackageName -TimeoutSeconds 6
+        if ($foregroundPackage -eq $PackageName) {
+            return
+        }
+    }
+
+    throw "Nao foi possivel colocar $PackageName em primeiro plano no dispositivo."
+}
+
 function Open-YouAutoCarDiagnosticsTab {
     param([string]$DeviceId)
 
@@ -722,6 +1203,162 @@ function Open-YouAutoCarScannerTecnico {
             $retryCenter = Get-YouObdBoundsCenter -Bounds $retryNode.Bounds
             Invoke-YouObdTap -DeviceId $DeviceId -X $retryCenter.X -Y $retryCenter.Y
             Start-Sleep -Seconds 4
+            $scannerNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 12 -PollMilliseconds 800
+        }
+    }
+    if ($null -eq $scannerNode) {
+        throw "O Scanner Tecnico nao abriu corretamente."
+    }
+}
+
+function Open-YouAutoCarScannerTecnico {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName = "com.youautocar.client2"
+    )
+
+    $retryAttempts = 0
+    $size = Get-YouObdDisplaySize -DeviceId $DeviceId
+
+    for ($attempt = 1; $attempt -le 8; $attempt++) {
+        Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+
+        $tempPath = Join-Path $env:TEMP ("youobd-scanner-" + [guid]::NewGuid().ToString("N") + ".xml")
+        try {
+            Save-YouObdUiDump -DeviceId $DeviceId -TargetPath $tempPath
+            $uiRaw = Get-Content -LiteralPath $tempPath -Raw -Encoding utf8
+
+            if ($uiRaw -match 'LAB_SCANNER|Leitura ativa|Persistencia|Persistência') {
+                return
+            }
+
+            $scannerNode = Find-YouObdUiNode -UiDumpPath $tempPath -Pattern 'Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico'
+            if ($null -ne $scannerNode) {
+                $center = Get-YouObdBoundsCenter -Bounds $scannerNode.Bounds
+                Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+                Start-Sleep -Seconds 4
+                Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+                $readyNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern 'LAB_SCANNER|Leitura ativa|Persistencia|Persistência|Scanner Tecnico|Scanner T..cnico' -TimeoutSeconds 12 -PollMilliseconds 800
+                if ($null -ne $readyNode) {
+                    return
+                }
+            }
+
+            $retryNode = Find-YouObdUiNode -UiDumpPath $tempPath -Pattern 'Tentar Novamente'
+            if ($null -ne $retryNode -and $retryAttempts -lt 2) {
+                $center = Get-YouObdBoundsCenter -Bounds $retryNode.Bounds
+                Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+                $retryAttempts++
+                Start-Sleep -Seconds 18
+                continue
+            }
+
+            if ($uiRaw -match 'Conectando|Despertando rede do carro|ELM327 v1.4b|PIDs suportados|Auto-conectado|ECU Pronta') {
+                Start-Sleep -Seconds 8
+                continue
+            }
+
+            Invoke-YouObdSwipe -DeviceId $DeviceId -X1 ([int]($size.Width * 0.50)) -Y1 ([int]($size.Height * 0.82)) -X2 ([int]($size.Width * 0.50)) -Y2 ([int]($size.Height * 0.48)) -DurationMs 300
+            Start-Sleep -Seconds 2
+        }
+        finally {
+            if (Test-Path -LiteralPath $tempPath) {
+                Remove-Item -LiteralPath $tempPath -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    throw "O Scanner Tecnico nao abriu corretamente."
+}
+
+function Open-YouAutoCarDiagnosticsTab {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName = "com.youautocar.client2"
+    )
+
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+        Start-Sleep -Seconds 2
+
+        $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "^Diagn" -TimeoutSeconds 12 -PollMilliseconds 900
+        if ($null -eq $node) {
+            $size = Get-YouObdDisplaySize -DeviceId $DeviceId
+            $fallbackX = [int]($size.Width * 0.30)
+            $fallbackY = [int]($size.Height * 0.90)
+            Invoke-YouObdTap -DeviceId $DeviceId -X $fallbackX -Y $fallbackY
+            Start-Sleep -Seconds 2
+        }
+        else {
+            $center = Get-YouObdBoundsCenter -Bounds $node.Bounds
+            Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+            Start-Sleep -Seconds 3
+        }
+
+        Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+        $readyNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "LAB_DIAGNOSTICS|Conectar ao OBD|Configura[cÃ§][oÃµ]es Bluetooth|Conectando|Ve[iÃ­]culo|Diagn[oÃ³]stico" -TimeoutSeconds 8 -PollMilliseconds 700
+        if ($null -ne $readyNode) {
+            return
+        }
+    }
+
+    throw "Nao foi possivel localizar a aba Diagnostico do YouAutoCar."
+}
+
+function Open-YouAutoCarScannerTecnico {
+    param(
+        [string]$DeviceId,
+        [string]$PackageName = "com.youautocar.client2"
+    )
+
+    Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+
+    $readyNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Auto-conectado|ECU Pronta|Scanner ao vivo conectado|OBDLink MX\\+" -TimeoutSeconds 18 -PollMilliseconds 900
+    if ($null -eq $readyNode) {
+        Start-Sleep -Seconds 4
+    }
+
+    $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico" -TimeoutSeconds 8 -PollMilliseconds 700
+    if ($null -eq $node) {
+        $size = Get-YouObdDisplaySize -DeviceId $DeviceId
+        Invoke-YouObdTap -DeviceId $DeviceId -X ([int]($size.Width * 0.82)) -Y ([int]($size.Height * 0.07))
+        Start-Sleep -Seconds 2
+        Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+
+        $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 6 -PollMilliseconds 700
+        if ($null -ne $node) {
+            return
+        }
+
+        Invoke-YouObdSwipe -DeviceId $DeviceId -X1 ([int]($size.Width * 0.5)) -Y1 ([int]($size.Height * 0.78)) -X2 ([int]($size.Width * 0.5)) -Y2 ([int]($size.Height * 0.48)) -DurationMs 300
+        Start-Sleep -Seconds 1
+        Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+
+        $node = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico" -TimeoutSeconds 5 -PollMilliseconds 700
+        if ($null -eq $node) {
+            Invoke-YouObdTap -DeviceId $DeviceId -X ([int]($size.Width * 0.5)) -Y ([int]($size.Height * 0.42))
+            Start-Sleep -Seconds 2
+        } else {
+            $center = Get-YouObdBoundsCenter -Bounds $node.Bounds
+            Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+            Start-Sleep -Seconds 3
+        }
+    }
+    else {
+        $center = Get-YouObdBoundsCenter -Bounds $node.Bounds
+        Invoke-YouObdTap -DeviceId $DeviceId -X $center.X -Y $center.Y
+        Start-Sleep -Seconds 4
+    }
+
+    Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
+    $scannerNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 12 -PollMilliseconds 800
+    if ($null -eq $scannerNode) {
+        $retryNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Abrir Scanner Tecnico|Abrir Scanner T..cnico|Scanner Tecnico|Scanner T..cnico" -TimeoutSeconds 4 -PollMilliseconds 700
+        if ($null -ne $retryNode) {
+            $retryCenter = Get-YouObdBoundsCenter -Bounds $retryNode.Bounds
+            Invoke-YouObdTap -DeviceId $DeviceId -X $retryCenter.X -Y $retryCenter.Y
+            Start-Sleep -Seconds 4
+            Ensure-YouObdForegroundApp -DeviceId $DeviceId -PackageName $PackageName
             $scannerNode = Wait-YouObdUiNode -DeviceId $DeviceId -Pattern "Leitura ativa|Sessao|Sensores|Persistencia|Scanner Tecnico" -TimeoutSeconds 12 -PollMilliseconds 800
         }
     }

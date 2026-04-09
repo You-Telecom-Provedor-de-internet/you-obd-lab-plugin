@@ -23,6 +23,8 @@ Run Flutter commands from the app workspace, usually `C:\www\YouAutoCarvAPP2\app
 ## Device Commands
 
 - Detect phone: `adb devices`
+- Wi-Fi fallback: `adb connect 192.168.1.99:5555`
+- Promote USB to Wi-Fi: `adb -s <usb-serial> tcpip 5555`
 - Logcat: `adb logcat`
 - Screenshot: `adb exec-out screencap -p > file.png`
 - App package in past validations: `com.youautocar.client2`
