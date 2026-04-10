@@ -2,400 +2,365 @@
 
 ![YOU OBD Lab](assets/app-icon.svg)
 
-Plugin local do Codex para transformar o ecossistema YOU em um laboratorio de validacao integrado e, agora, em um hub multi-skill para:
+`YOU OBD Lab` e um plugin local do Codex para transformar o ecossistema YOU em um laboratorio repetivel de:
 
-- `YouSimuladorOBD`
-- `YouAutoCarvAPP2`
+- validacao de simulador OBD
+- observacao do app Android em celular real via `ADB`
+- trabalho no `firmware/YouAutoTester`
+- validacao de fixtures e cenarios
+- revisao de contratos, telemetria e regressao
+- triagem operacional com LLMs locais via `Ollama`
+
+O plugin foi desenhado para trabalhar em conjunto com:
+
+- `C:\www\YouSimuladorOBD`
+- `C:\www\YouAutoCarvAPP2`
 - `firmware/YouAutoTester`
-- celular Android real via `ADB`
+- celular Android real
 - adaptadores `ELM327` e `OBDLink`
-- gateway BLE e hardware de bancada
 
-Fonte de verdade das credenciais da API do simulador para automacao local:
+## Leitura recomendada
+
+Se voce quer uma visao rapida:
+
+- leia este `README`
+
+Se voce quer o manual completo, bom para estudo, repasse e NotebookLM:
+
+- [docs/you-obd-lab-complete-guide.md](docs/you-obd-lab-complete-guide.md)
+
+Se voce quer um material ja organizado para virar video:
+
+- [docs/notebooklm-video-brief.md](docs/notebooklm-video-brief.md)
+
+## Quick Start
+
+Se voce quer sair do zero e provar que tudo esta vivo:
+
+### 1. Sincronize o plugin para o Codex local
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\sync-to-codex.ps1"
+```
+
+### 2. Liste os perfis locais
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-ollama-profile.ps1" -ListProfiles
+```
+
+### 3. Valide o endpoint local do Ollama
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-ollama-profile.ps1" -Profile rapido -HealthCheck
+```
+
+### 4. Rode uma triagem real com LM local
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-ollama-profile.ps1" -Profile analitico -Prompt "Resuma este fluxo em 5 bullets e aponte possivel drift contratual."
+```
+
+### 5. Confirme uso de GPU quando aplicavel
+
+```powershell
+ollama ps
+```
+
+```powershell
+nvidia-smi
+```
+
+### 6. Invoque o plugin no Codex
+
+- `Use [@you-obd-lab](plugin://you-obd-lab@haise-local) para abrir o laboratorio com ownership claro`
+- `Use [@you-obd-lab](plugin://you-obd-lab@haise-local) para validar uma fixture do simulador com evidencias`
+- `Use [@you-obd-lab](plugin://you-obd-lab@haise-local) para revisar contratos entre app, tester e simulador`
+
+## O que o plugin pode fazer
+
+O plugin ajuda o Codex a:
+
+- preparar cenarios no simulador via API
+- validar o comportamento do app Android contra a API e o oracle do simulador
+- comparar `API do simulador`, `OBD real` e `ADB/logcat/screenshots`
+- trabalhar no `firmware/YouAutoTester` com ownership claro
+- revisar contratos JSON, eventos WebSocket, rotas, DTOs e handoffs
+- inspecionar telemetria e reduzir ruido de log
+- coordenar validacao por fixture, por suite ou por bancada real
+- usar LLMs locais para triagem, condensacao e comparacao inicial
+
+Em resumo: o plugin pega um fluxo que normalmente fica espalhado entre memoria, scripts e tentativa-e-erro, e transforma isso em um laboratorio orientado por evidencia.
+
+## Modelo de IA do plugin
+
+O `YOU OBD Lab` e um plugin hibrido.
+
+### Papel do `gpt-5.4`
+
+`gpt-5.4` continua sendo o modelo principal para:
+
+- orquestracao
+- revisao final
+- decisao de risco
+- interpretacao final de contratos
+- veredito final de validacao
+
+### Papel das LLMs locais via Ollama
+
+As LLMs locais entram como apoio operacional para:
+
+- triagem inicial
+- condensacao de logs
+- comparacao de payloads
+- resumo de repeticoes
+- auditoria inicial antes da revisao final
+
+Perfis locais suportados hoje:
+
+| Perfil | Modelo | Uso principal |
+| --- | --- | --- |
+| `rapido` | `qwen2.5-coder:7b` | triagem curta e scratchpad operacional |
+| `analitico` | `deepseek-r1:8b` | comparacao e primeira leitura mais cuidadosa |
+| `pesado` | `gpt-oss:20b` | condensacao de escopo amplo e logs maiores |
+
+Regra do plugin:
+
+- LLM local ajuda
+- `gpt-5.4` fecha o diagnostico e a decisao critica
+
+Guia tecnico do stack local:
+
+- [docs/hybrid-local-stack-2026-04-09.md](docs/hybrid-local-stack-2026-04-09.md)
+
+## Como o plugin trabalha
+
+Quando o usuario chama `@you-obd-lab`, o fluxo ideal e:
+
+1. `you-obd-team` ou `you-orchestrator` abrem a coordenacao
+2. ownership e contratos sao congelados antes da edicao
+3. entra so o especialista necessario
+4. LLM local pode fazer triagem inicial
+5. `gpt-5.4` fecha risco, revisao e decisao final
+
+Esse desenho evita:
+
+- duas frentes mexendo no mesmo arquivo
+- drift de contrato entre repos
+- conclusao forte baseada apenas em resumo local
+
+## Skills do plugin
+
+O plugin hoje disponibiliza estas skills:
+
+| Skill | Papel |
+| --- | --- |
+| `you-obd-team` | entrada padrao quando o usuario invoca `@you-obd-lab` |
+| `you-orchestrator` | ownership, contratos, sequenciamento e handoff |
+| `you-monorepo-auditor` | mapa rapido de impacto entre repos |
+| `you-contract-guardian` | guardiao de contratos, payloads e eventos |
+| `you-test-conductor` | plano e execucao de validacao |
+| `you-telemetry-inspector` | leitura de logs, traces e timeline |
+| `you-obd-android-lab` | skill ampla para fluxo Android + simulador + celular |
+| `you-android-gateway` | Android, `ADB`, BLE, IKRO e transporte |
+| `you-obd-simulator` | ownership do `YouSimuladorOBD` |
+| `youautotester-lab` | ownership do `firmware/YouAutoTester` |
+| `you-reviewer` | revisao final de regressao, risco e QA |
+
+## Agentes customizados
+
+O plugin tambem instala perfis de agentes customizados em `C:\Users\haise\.codex\agents`.
+
+Agentes base:
+
+- `you-orchestrator`
+- `youautotester-lab`
+- `you-android-gateway`
+- `you-obd-simulator`
+- `you-reviewer`
+
+Modelos desses agentes:
+
+- `you-orchestrator`: `gpt-5.4`
+- `you-reviewer`: `gpt-5.4`
+- especialistas de implementacao: `gpt-5.3-codex`
+
+Quando o usuario invoca `[@you-obd-lab](plugin://you-obd-lab@haise-local)`, o comportamento esperado e:
+
+1. abrir com `you-orchestrator`
+2. congelar ownership e contratos
+3. chamar so o especialista necessario
+4. fechar com `you-reviewer` quando houver risco relevante
+
+## O que entra e o que sai do laboratorio
+
+Entradas comuns:
+
+- prompt do Codex
+- fixture selecionada
+- endpoint da API do simulador
+- logcat, screenshot e traces locais
+- payloads JSON ou eventos WebSocket
+- telemetria de bancada
+
+Saidas comuns:
+
+- `report.md`
+- `report.json`
+- `suite-summary.md`
+- `suite-summary.json`
+- snapshots da API
+- resumo de logs com apoio local
+- handoff tecnico com ownership, risco e proximo owner
+
+## Fluxos mais importantes
+
+### 1. Validacao de bancada completa
+
+Use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-obd-bench-validation.ps1" -FixtureId "can_kia_clean"
+```
+
+Esse fluxo pode:
+
+- preparar o simulador
+- abrir o app Android
+- capturar `status` e `diagnostics`
+- coletar screenshot e logcat
+- emitir `report.md` e `report.json`
+
+### 2. Suite de fixtures
+
+Use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-obd-fixture-suite.ps1" -FixtureIds "can_kia_clean","can_kia_dtc","can_thp_urban"
+```
+
+### 3. Snapshot do laboratorio
+
+Use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\collect-you-obd-lab-snapshot.ps1"
+```
+
+### 4. Triagem local com LLM
+
+Use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-ollama-profile.ps1" -Profile rapido -Prompt "Resuma estes logs em 5 bullets."
+```
+
+### 5. Validacao de app em emulador
+
+Use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-autocar-emulator-validation.ps1" -Route /profile/settings -ExpectedText "Configuracoes","Versao em execucao:"
+```
+
+## Caminhos importantes
+
+### Fonte do plugin
+
+- `C:\www\you-obd-lab-plugin`
+
+### Instalacao local do Codex
+
+Hoje o plugin pode aparecer em mais de uma arvore local:
+
+- `C:\Users\haise\.codex\plugins\you-obd-lab`
+- `C:\Users\haise\.codex\plugins\cache\haise-local\you-obd-lab\local`
+- `C:\Users\haise\.codex\.tmp\plugins\plugins\you-obd-lab`
+
+O script `sync-to-codex.ps1` foi ajustado para manter essas superficies coerentes.
+
+### Marketplaces locais
+
+- `C:\Users\haise\.agents\plugins\marketplace.json`
+- `C:\Users\haise\.codex\.tmp\plugins\.agents\plugins\marketplace.json`
+
+### Regras globais
+
+- `C:\Users\haise\.codex\AGENTS.md`
+
+## Credenciais e configuracao local
+
+Fontes de verdade para credenciais do simulador:
 
 - `scripts/local-api-credentials.json`
 - `YOU_OBD_API_USER`
 - `YOU_OBD_API_PASSWORD`
 - `C:\www\YouSimuladorOBD\firmware\include\config.h`
 
-No laboratorio atual validado em `2026-04-08`, a credencial alinhada ao firmware e:
+Outras configuracoes importantes:
 
-- usuario: `youobd-core`
-- senha: `YouOBD.RevA@2026#Core`
+- manifesto de fixtures: `fixtures/lab-fixtures.json`
+- helper de modelos locais: `scripts/invoke-you-ollama-profile.ps1`
 
-Os scripts continuam aceitando override por ambiente:
+## Como sincronizar o plugin
 
-- `YOU_OBD_API_USER`
-- `YOU_OBD_API_PASSWORD`
-- `scripts/local-api-credentials.json`
-
-Formato do arquivo local:
-
-```json
-{
-  "user": "youobd-core",
-  "password": "YouOBD.RevA@2026#Core"
-}
-```
-
-## O que ele resolve
-
-O plugin ajuda o Codex a:
-
-- preparar cenarios no simulador via API
-- validar comportamento real via OBD
-- acompanhar o app Android no celular
-- trabalhar no `firmware/YouAutoTester` com foco de laboratorio
-- comparar `API do simulador`, `OBD real` e `UI/logs do app`
-- revisar regressao, riscos e contratos entre projetos
-- registrar evidencias de bancada
-
-Em outras palavras, ele tira o fluxo do modo "depende da memoria" e coloca em um laboratorio repetivel, com skills especializadas por dominio.
-
-## Equipe real de agentes
-
-O plugin agora pode funcionar como launcher de uma equipe real de subagentes do Codex quando voce invoca:
-
-- `[@you-obd-lab](plugin://you-obd-lab@haise-local)`
-
-Entrada padrao para isso:
-
-- `you-obd-team`
-
-Equipe base instalada em `C:\Users\haise\.codex\agents`:
-
-- `you-orchestrator`
-- `youautotester-lab`
-- `you-android-gateway`
-- `you-obd-simulator`
-- `you-reviewer`
-
-Papel de cada um:
-
-- `you-orchestrator` congela ownership, contratos, riscos e handoffs
-- `youautotester-lab` trabalha no `firmware/YouAutoTester`
-- `you-android-gateway` trabalha em Android, `ADB`, BLE e IKRO
-- `you-obd-simulator` trabalha no `YouSimuladorOBD`
-- `you-reviewer` revisa regressao, drift de contrato e gaps de validacao
-
-Observacao importante:
-
-- o comportamento continua sendo orientado por instrucoes do Codex, nao por um hook secreto do plugin
-- por isso, a forma mais confiavel de acionar a equipe continua sendo mencionar o plugin e pedir execucao normal da tarefa
-- a skill `you-obd-team` passa a ser a porta de entrada padrao para esse fluxo
-
-## Arquitetura multi-skill
-
-O plugin continua com a skill transversal original e agora funciona como um hub com especializacao por dominio:
-
-- `you-obd-android-lab`
-  Skill ampla do laboratorio. Use quando a tarefa cruza simulador, Android, celular real e adaptadores OBD.
-- `you-obd-team`
-  Skill-raiz para abrir a equipe real de agentes do plugin com coordenador, especialistas e reviewer.
-- `you-orchestrator`
-  Coordena arquitetura, contratos, payloads JSON, eventos WebSocket e impacto cruzado entre projetos.
-- `youautotester-lab`
-  Especialista em `firmware/YouAutoTester`, `TestResult`, `Reading`, WebUI local, API HTTP local e WebSocket local.
-- `you-android-gateway`
-  Especialista em Android, `ADB`, BLE, Bluetooth, captura do IKRO `IK2029B` e envio de leituras ao `YouAutoTester`.
-- `you-obd-simulator`
-  Especialista em `YouSimuladorOBD`, perfis, modos, cenarios, DTCs e consistencia entre API e fluxo OBD real.
-- `you-reviewer`
-  Especialista em revisao, regressao, contratos, riscos tecnicos e QA transversal.
-
-Espaco futuro:
-
-- `you-web-lab`
-  Mantido como direcao futura para interfaces web do ecossistema, sem implementacao obrigatoria neste momento.
-
-## Modelo de validacao
-
-O laboratorio continua trabalhando com tres verdades:
-
-1. `API do simulador`
-2. `OBD real`
-3. `ADB/logcat/screenshots`
-
-Interpretacao:
-
-- `API` diz o que o simulador acredita que esta acontecendo
-- `OBD` diz o que um scanner/app real realmente viu
-- `ADB/logcat` diz o que o app Android exibiu e como ele se comportou
-
-```mermaid
-flowchart LR
-    A["Codex + YOU OBD Lab"] --> B["API do simulador"]
-    A --> C["OBD real"]
-    A --> D["ADB / logcat / screenshots"]
-    A --> E["Skills especializadas"]
-    B --> F["Oracle interno"]
-    C --> G["Compatibilidade real"]
-    D --> H["Comportamento do app"]
-    E --> I["Coordenacao por dominio"]
-```
-
-## Repositorios relacionados
-
-- `C:\www\YouSimuladorOBD`
-- `C:\www\YouAutoCarvAPP2`
-
-## Workspace fonte
-
-Este workspace e a fonte de verdade do plugin:
-
-- `C:\www\you-obd-lab-plugin`
-
-## Instalacao ativa no Codex
-
-Nesta maquina, a instalacao ativa do plugin fica em:
-
-- `C:\Users\haise\.codex\.tmp\plugins\plugins\you-obd-lab`
-
-Marketplace lido pela interface do Codex:
-
-- `C:\Users\haise\.codex\.tmp\plugins\.agents\plugins\marketplace.json`
-
-## Estrutura
-
-```text
-you-obd-lab-plugin/
-  .codex-plugin/
-    plugin.json
-  custom-agents/
-  assets/
-  docs/
-  fixtures/
-  scripts/
-  skills/
-    you-obd-team/
-    you-obd-android-lab/
-    you-orchestrator/
-    youautotester-lab/
-    you-android-gateway/
-    you-obd-simulator/
-    you-reviewer/
-```
-
-## Quando usar cada skill
-
-- `you-obd-android-lab`
-  Quando a tarefa precisa cruzar API do simulador, OBD real, Android e evidencias de bancada.
-- `you-obd-team`
-  Quando voce quer que o plugin seja a porta de entrada e monte uma equipe real de agentes com ownership e handoff.
-- `you-orchestrator`
-  Quando a mudanca cruza mais de um repositorio, altera contratos ou precisa de analise de impacto fim a fim.
-- `youautotester-lab`
-  Quando o foco esta em `firmware/YouAutoTester`, instrumentos, leituras, `TestResult` ou WebUI/API local do tester.
-- `you-android-gateway`
-  Quando o foco esta em Android, `ADB`, BLE, gateway do IKRO ou transporte de leituras para o tester.
-- `you-obd-simulator`
-  Quando o foco esta em perfis, modos, cenarios, DTCs, freeze frame e coerencia do `YouSimuladorOBD`.
-- `you-reviewer`
-  Quando a tarefa principal e revisar risco, regressao, QA ou consistencia entre contratos.
-
-## Exemplos de prompts
-
-- `Use $you-obd-android-lab para validar o simulador com o app Android e o celular real`
-- `Use $you-obd-team para abrir a equipe real de agentes do YOU OBD Lab`
-- `Use $you-orchestrator para coordenar uma mudanca entre YouAutoCarvAPP2, YouSimuladorOBD e o plugin`
-- `Use $youautotester-lab para trabalhar no firmware/YouAutoTester e na API local de leituras`
-- `Use $you-android-gateway para depurar BLE, ADB e o gateway do IKRO`
-- `Use $you-obd-simulator para montar um cenario com profile, mode, scenario e DTCs`
-- `Use $you-reviewer para revisar regressao, contratos e riscos tecnicos antes do merge`
-
-## Scripts uteis
-
-Publicar o workspace para o diretorio ativo do Codex:
+Para publicar o workspace atual no Codex local:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\sync-to-codex.ps1"
 ```
 
-Esse script faz quatro coisas:
+Esse script agora:
 
-- copia o plugin para `C:\Users\haise\.codex\.tmp\plugins\plugins\you-obd-lab`
-- adiciona ou atualiza a entrada `you-obd-lab` em `C:\Users\haise\.codex\.tmp\plugins\.agents\plugins\marketplace.json`
-- instala ou atualiza os perfis globais de agentes em `C:\Users\haise\.codex\agents`
-- instala ou atualiza uma regra global em `C:\Users\haise\.codex\AGENTS.md` para que `@you-obd-lab` prefira a equipe real de agentes
+- sincroniza a arvore `.tmp` de compatibilidade
+- sincroniza `C:\Users\haise\.codex\plugins\you-obd-lab`
+- sincroniza o cache ativo `haise-local`
+- atualiza os marketplaces locais
+- instala os agentes customizados
+- atualiza a regra global em `AGENTS.md`
 
-Trazer de volta o plugin ativo do Codex para o workspace:
+## Exemplos de prompts
 
-```powershell
-powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\sync-from-codex.ps1"
-```
+- `Use $you-obd-team para abrir a equipe real do laboratorio`
+- `Use $you-orchestrator para coordenar uma mudanca entre app, simulador e plugin`
+- `Use $you-test-conductor para validar esta fixture com evidencias`
+- `Use $you-telemetry-inspector para resumir esta timeline de logcat e WebSocket`
+- `Use $you-contract-guardian para revisar drift de payload`
+- `Use $you-monorepo-auditor para mapear impacto entre repos`
 
-Gerar snapshot completo da bancada:
+## Pacote recomendado para NotebookLM
 
-```powershell
-powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\collect-you-obd-lab-snapshot.ps1"
-```
+Se o objetivo e gerar video, onboarding ou narracao tecnica, carregue pelo menos:
 
-Politica ADB padrao dos scripts de bancada:
+- `README.md`
+- `docs/you-obd-lab-complete-guide.md`
+- `docs/notebooklm-video-brief.md`
+- `docs/hybrid-local-stack-2026-04-09.md`
+- `docs/ikro-android-youautotester-contract.md`
 
-- tenta USB primeiro
-- se nao achar USB, tenta Wi-Fi em `192.168.1.99:5555`
-- se achar USB, promove para Wi-Fi por padrao e cai de volta para USB se a promocao falhar
-- quando a promocao falha, o relatorio registra a falha e a estrategia final usada
-- para forcar USB puro: `-PromoteUsbToWifi:$false`
-- parametros disponiveis: `-WifiDeviceIp`, `-AdbWifiPort`, `-DeviceId`, `-PromoteUsbToWifi`
+Ordem recomendada:
 
-Monitorar o status da API em loop:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\watch-you-obd-status.ps1"
-```
-
-Conexao ADB do celular:
-
-- o plugin agora trabalha em politica `USB primeiro`
-- se nao encontrar o celular no `adb` por USB, tenta `ADB over Wi-Fi` em `192.168.1.99:5555`
-- se o USB estiver presente, voce pode promover a sessao para Wi-Fi com `-PromoteUsbToWifi`
-- para outro IP fixo, passe `-WifiDeviceIp "<ip-do-celular>"`
-
-Exemplo de snapshot promovendo USB para Wi-Fi:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\collect-you-obd-lab-snapshot.ps1" `
-  -PromoteUsbToWifi `
-  -WifiDeviceIp "192.168.1.99"
-```
-
-Rodar uma validacao de bancada completa com simulador + Android + relatorio:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-obd-bench-validation.ps1" `
-  -SimulatorBaseUrl "http://192.168.1.11" `
-  -WifiDeviceIp "192.168.1.99" `
-  -PromoteUsbToWifi `
-  -ProfileId "peugeot_308_16thp" `
-  -ModeId 2 `
-  -ScenarioId "superaquecimento" `
-  -DtcCodes "P0300","P0420"
-```
-
-Isso gera:
-
-- `report.md`
-- `report.json`
-- `api-status-before/after`
-- `api-diagnostics-before/after`
-- screenshot do celular
-- logcat bruto e filtrado
-- inventario do device via `adb`
-
-Rodar a mesma validacao orientada por fixture:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-obd-bench-validation.ps1" `
-  -FixtureId "can_kia_clean"
-```
-
-Rodar uma suite de fixtures em sequencia:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-obd-fixture-suite.ps1" `
-  -FixtureIds "can_kia_clean","can_kia_dtc","can_thp_urban"
-```
-
-Isso gera um diretorio com:
-
-- um subdiretorio por `fixture_id`
-- `suite-summary.md`
-- `suite-summary.json`
-
-## Fixtures de bancada
-
-O manifesto principal de fixtures fica em:
-
-- `C:\www\you-obd-lab-plugin\fixtures\lab-fixtures.json`
-
-Cada fixture pode congelar:
-
-- `simulator_profile_id`
-- `protocol_id`
-- `mode_id`
-- `scenario_id`
-- `manual_dtcs`
-- rotulos esperados na UI Android
-- PIDs centrais esperados
-- campos esperados do oracle
-
-Fluxo recomendado:
-
-1. usar `FixtureId` quando quiser uma rodada repetivel e comparavel
-2. deixar o runner preparar simulador, oracle e validacoes da UI a partir da fixture
-3. usar a suite quando precisar cobertura curta de varios perfis ou protocolos
-
-Categorias de falha do runner de bancada:
-
-- `simulator_auth_failed`
-- `simulator_write_failed`
-- `ui_marker_missing`
-- `vehicle_context_mismatch`
-- `scanner_not_opened`
-- `scanner_session_missing`
-- `oracle_obd_mismatch`
-- `unexpected_error`
-
-## Fluxo recomendado de manutencao
-
-1. editar o plugin em `C:\www\you-obd-lab-plugin`
-2. rodar `sync-to-codex.ps1` para copiar o plugin, registrar no marketplace local do Codex e instalar os agentes globais
-3. reabrir o Codex se necessario
-4. validar o comportamento do plugin na UI
-
-## Automacao de teste
-
-O fluxo recomendado para testes reais continua sendo:
-
-1. preparar o simulador por API
-2. opcionalmente aplicar `profile`, `mode`, `scenario` e `dtcs`
-3. abrir o app Android no celular
-4. capturar `status`, `diagnostics`, screenshot e logcat
-5. gerar um relatorio unico em Markdown/JSON
-
-O script `invoke-you-obd-bench-validation.ps1` faz isso em uma passada.
-
-Para validar o app em emulador reaproveitando o fluxo oficial do `YouAutoCarvAPP2`:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File "C:\www\you-obd-lab-plugin\scripts\invoke-you-autocar-emulator-validation.ps1" `
-  -Route /profile/settings `
-  -ExpectedText "Configuracoes","Versao em execucao:" `
-  -ScrollCount 4 `
-  -StopExistingFlutterProcesses
-```
-
-Assim o plugin deixa de ficar preso apenas ao diretorio interno do Codex.
-
-## Compatibilidade
-
-- A skill `you-obd-android-lab` foi preservada sem remocao.
-- O manifesto continua apontando para `./skills/`, entao a descoberta das novas skills permanece compativel com a estrutura atual do plugin.
-- Nenhuma dependencia pesada nova foi adicionada.
-
-## Troubleshooting
-
-Se o plugin nao aparecer na interface:
-
-1. confirme se `you-obd-lab` existe em `C:\Users\haise\.codex\.tmp\plugins\plugins\`
-2. confirme se ele esta listado em `C:\Users\haise\.codex\.tmp\plugins\.agents\plugins\marketplace.json`
-3. rode `sync-to-codex.ps1`
-4. feche e abra o Codex novamente
-
-Se a equipe de agentes nao entrar em acao:
-
-1. confirme se os arquivos `.toml` existem em `C:\Users\haise\.codex\agents`
-2. confirme se `C:\Users\haise\.codex\AGENTS.md` contem a secao `YOU OBD Lab`
-3. confirme se o plugin foi sincronizado para `C:\Users\haise\.codex\.tmp\plugins\plugins\you-obd-lab`
-4. abra um chat novo e invoque `[@you-obd-lab](plugin://you-obd-lab@haise-local)`
-5. teste com um prompt que peca execucao normal da tarefa ou use explicitamente `Use $you-obd-team ...`
+1. `README.md`
+2. `docs/you-obd-lab-complete-guide.md`
+3. `docs/notebooklm-video-brief.md`
+4. `docs/hybrid-local-stack-2026-04-09.md`
+5. `docs/ikro-android-youautotester-contract.md`
 
 ## Documentacao relacionada
 
-- documentacao operacional no projeto: `C:\www\YouSimuladorOBD\docs\18-codex-plugin-you-obd-lab.md`
-- contrato IKRO Android <-> tester: [docs/ikro-android-youautotester-contract.md](docs/ikro-android-youautotester-contract.md)
-- handoff Android para tensao instavel: [docs/handoff-android-gateway-unstable-voltage.md](docs/handoff-android-gateway-unstable-voltage.md)
-- handoff simulador para tensao instavel: [docs/handoff-simulator-unstable-voltage.md](docs/handoff-simulator-unstable-voltage.md)
-- changelog do plugin: [CHANGELOG.md](CHANGELOG.md)
-- notas do workspace: [WORKSPACE.md](WORKSPACE.md)
+- [docs/you-obd-lab-complete-guide.md](docs/you-obd-lab-complete-guide.md)
+- [docs/notebooklm-video-brief.md](docs/notebooklm-video-brief.md)
+- [docs/hybrid-local-stack-2026-04-09.md](docs/hybrid-local-stack-2026-04-09.md)
+- [docs/ikro-android-youautotester-contract.md](docs/ikro-android-youautotester-contract.md)
+- [docs/handoff-android-gateway-unstable-voltage.md](docs/handoff-android-gateway-unstable-voltage.md)
+- [docs/handoff-simulator-unstable-voltage.md](docs/handoff-simulator-unstable-voltage.md)
+
+## Estado atual
+
+O plugin ja esta apto para:
+
+- operar como hub multi-skill
+- usar LLMs locais via Ollama
+- manter `gpt-5.4` como modelo principal
+- validar simulador, app Android e tester
+- servir de base para documentacao, treinamento e material de video

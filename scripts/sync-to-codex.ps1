@@ -1,16 +1,23 @@
 param(
     [string]$WorkspaceRoot = "C:\www\you-obd-lab-plugin",
-    [string]$CodexPluginRoot = "C:\Users\haise\.codex\.tmp\plugins\plugins\you-obd-lab",
-    [string]$MarketplacePath = "C:\Users\haise\.codex\.tmp\plugins\.agents\plugins\marketplace.json",
+    [string]$CodexCompatPluginRoot = "C:\Users\haise\.codex\.tmp\plugins\plugins\you-obd-lab",
+    [string]$TmpMarketplacePath = "C:\Users\haise\.codex\.tmp\plugins\.agents\plugins\marketplace.json",
+    [string]$CodexPluginHome = "C:\Users\haise\.codex\plugins\you-obd-lab",
+    [string]$CodexCachePluginRoot = "C:\Users\haise\.codex\plugins\cache\haise-local\you-obd-lab\local",
+    [string]$LocalMarketplacePath = "C:\Users\haise\.agents\plugins\marketplace.json",
     [string]$CodexAgentsRoot = "C:\Users\haise\.codex\agents",
     [string]$GlobalAgentsMarkdownPath = "C:\Users\haise\.codex\AGENTS.md"
 )
 
 $ErrorActionPreference = "Stop"
 $pluginName = "you-obd-lab"
-$marketplacePluginPath = "./plugins/$pluginName"
-$marketplaceCategory = "Developer Tools"
 $workspaceAgentsRoot = Join-Path $WorkspaceRoot "custom-agents"
+$excludeDirs = @(".git", "tmp")
+$excludeFiles = @(
+    ".codex-sync-log.txt",
+    "local-api-credentials.backup-*.json"
+)
+
 $globalAgentsStart = "<!-- you-obd-lab:start -->"
 $globalAgentsEnd = "<!-- you-obd-lab:end -->"
 $globalAgentsBlock = @"
@@ -28,88 +35,128 @@ When the user explicitly mentions `[@you-obd-lab](plugin://you-obd-lab@haise-loc
 <!-- you-obd-lab:end -->
 "@
 
+function Write-Step {
+    param([string]$Message)
+    Write-Host "[you-obd-lab] $Message"
+}
+
+function Invoke-YouObdMirror {
+    param(
+        [string]$Source,
+        [string]$Destination
+    )
+
+    New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+
+    $robocopyArgs = @(
+        $Source,
+        $Destination,
+        "/MIR",
+        "/R:1",
+        "/W:1",
+        "/NFL",
+        "/NDL",
+        "/NJH",
+        "/NJS",
+        "/XF"
+    ) + $excludeFiles + @("/XD") + $excludeDirs
+
+    & robocopy @robocopyArgs | Out-Null
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ge 8) {
+        throw "Falha no robocopy ao sincronizar para '$Destination'. Codigo: $exitCode"
+    }
+}
+
+function Set-YouObdMarketplaceEntry {
+    param(
+        [string]$MarketplacePath,
+        [string]$PluginRelativePath,
+        [string]$MarketplaceName,
+        [string]$MarketplaceDisplayName
+    )
+
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $MarketplacePath) | Out-Null
+
+    $pluginEntry = [pscustomobject][ordered]@{
+        name = $pluginName
+        source = [pscustomobject][ordered]@{
+            source = "local"
+            path = $PluginRelativePath
+        }
+        policy = [pscustomobject][ordered]@{
+            installation = "AVAILABLE"
+            authentication = "ON_INSTALL"
+        }
+        category = "Developer Tools"
+    }
+
+    if (Test-Path $MarketplacePath) {
+        $marketplace = Get-Content -Raw $MarketplacePath | ConvertFrom-Json
+    } else {
+        $marketplace = [pscustomobject][ordered]@{
+            name = $MarketplaceName
+            interface = [pscustomobject][ordered]@{
+                displayName = $MarketplaceDisplayName
+            }
+            plugins = @()
+        }
+    }
+
+    if (-not $marketplace.interface) {
+        $marketplace | Add-Member -NotePropertyName interface -NotePropertyValue ([pscustomobject][ordered]@{
+            displayName = $MarketplaceDisplayName
+        })
+    }
+
+    if (-not $marketplace.plugins) {
+        $marketplace | Add-Member -NotePropertyName plugins -NotePropertyValue @()
+    }
+
+    $updatedPlugins = @()
+    $foundPlugin = $false
+    foreach ($existingPlugin in @($marketplace.plugins)) {
+        if ($existingPlugin.name -eq $pluginName) {
+            $updatedPlugins += $pluginEntry
+            $foundPlugin = $true
+        } else {
+            $updatedPlugins += $existingPlugin
+        }
+    }
+
+    if (-not $foundPlugin) {
+        $updatedPlugins += $pluginEntry
+    }
+
+    $marketplace.plugins = $updatedPlugins
+    $marketplace | ConvertTo-Json -Depth 100 | Set-Content -Encoding utf8 $MarketplacePath
+}
+
 if (-not (Test-Path $WorkspaceRoot)) {
     throw "Workspace nao encontrado: $WorkspaceRoot"
 }
 
-New-Item -ItemType Directory -Force -Path $CodexPluginRoot | Out-Null
-New-Item -ItemType Directory -Force -Path (Split-Path -Parent $MarketplacePath) | Out-Null
+Write-Step "Workspace root: $WorkspaceRoot"
+Write-Step "Syncing compatibility tree: $CodexCompatPluginRoot"
+Invoke-YouObdMirror -Source $WorkspaceRoot -Destination $CodexCompatPluginRoot
 
-$excludeDirs = @(".git")
-$excludeFiles = @(".codex-sync-log.txt")
+Write-Step "Syncing plugin home: $CodexPluginHome"
+Invoke-YouObdMirror -Source $WorkspaceRoot -Destination $CodexPluginHome
 
-$robocopyArgs = @(
-    $WorkspaceRoot,
-    $CodexPluginRoot,
-    "/MIR",
-    "/R:1",
-    "/W:1",
-    "/NFL",
-    "/NDL",
-    "/NJH",
-    "/NJS",
-    "/XF"
-) + $excludeFiles + @("/XD") + $excludeDirs
+Write-Step "Syncing active cache: $CodexCachePluginRoot"
+Invoke-YouObdMirror -Source $WorkspaceRoot -Destination $CodexCachePluginRoot
 
-& robocopy @robocopyArgs | Out-Null
-$exitCode = $LASTEXITCODE
-if ($exitCode -ge 8) {
-    throw "Falha no robocopy ao sincronizar para o Codex. Codigo: $exitCode"
-}
+Set-YouObdMarketplaceEntry `
+    -MarketplacePath $TmpMarketplacePath `
+    -PluginRelativePath "./plugins/$pluginName" `
+    -MarketplaceName "openai-curated" `
+    -MarketplaceDisplayName "Codex official"
 
-$pluginEntry = [pscustomobject][ordered]@{
-    name = $pluginName
-    source = [pscustomobject][ordered]@{
-        source = "local"
-        path = $marketplacePluginPath
-    }
-    policy = [pscustomobject][ordered]@{
-        installation = "AVAILABLE"
-        authentication = "ON_INSTALL"
-    }
-    category = $marketplaceCategory
-}
-
-if (Test-Path $MarketplacePath) {
-    $marketplace = Get-Content -Raw $MarketplacePath | ConvertFrom-Json
-} else {
-    $marketplace = [pscustomobject][ordered]@{
-        name = "local-marketplace"
-        interface = [pscustomobject][ordered]@{
-            displayName = "Local Plugins"
-        }
-        plugins = @()
-    }
-}
-
-if (-not $marketplace.interface) {
-    $marketplace | Add-Member -NotePropertyName interface -NotePropertyValue ([pscustomobject][ordered]@{
-        displayName = "Local Plugins"
-    })
-}
-
-if (-not $marketplace.plugins) {
-    $marketplace | Add-Member -NotePropertyName plugins -NotePropertyValue @()
-}
-
-$updatedPlugins = @()
-$foundPlugin = $false
-foreach ($existingPlugin in @($marketplace.plugins)) {
-    if ($existingPlugin.name -eq $pluginName) {
-        $updatedPlugins += $pluginEntry
-        $foundPlugin = $true
-        continue
-    }
-
-    $updatedPlugins += $existingPlugin
-}
-
-if (-not $foundPlugin) {
-    $updatedPlugins += $pluginEntry
-}
-
-$marketplace.plugins = $updatedPlugins
-$marketplace | ConvertTo-Json -Depth 100 | Set-Content -Encoding utf8 $MarketplacePath
+Set-YouObdMarketplaceEntry `
+    -MarketplacePath $LocalMarketplacePath `
+    -PluginRelativePath "./.codex/plugins/$pluginName" `
+    -MarketplaceName "haise-local" `
+    -MarketplaceDisplayName "Plugins Locais"
 
 if (Test-Path $workspaceAgentsRoot) {
     New-Item -ItemType Directory -Force -Path $CodexAgentsRoot | Out-Null
@@ -137,10 +184,15 @@ if ($globalAgentsText -match $pattern) {
 Set-Content -Encoding utf8 $GlobalAgentsMarkdownPath $updatedGlobalAgentsText
 
 $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-"[$stamp] sync-to-codex OK -> $CodexPluginRoot" | Out-File -FilePath (Join-Path $WorkspaceRoot ".codex-sync-log.txt") -Encoding utf8 -Append
-Write-Host "Plugin sincronizado para o Codex: $CodexPluginRoot"
-Write-Host "Plugin registrado no marketplace do Codex: $MarketplacePath"
+"[$stamp] sync-to-codex OK -> compat=$CodexCompatPluginRoot ; home=$CodexPluginHome ; cache=$CodexCachePluginRoot" |
+    Out-File -FilePath (Join-Path $WorkspaceRoot ".codex-sync-log.txt") -Encoding utf8 -Append
+
+Write-Step "Plugin sincronizado para a arvore de compatibilidade: $CodexCompatPluginRoot"
+Write-Step "Plugin sincronizado para o plugin home: $CodexPluginHome"
+Write-Step "Plugin sincronizado para o cache ativo: $CodexCachePluginRoot"
+Write-Step "Marketplace de compatibilidade atualizado: $TmpMarketplacePath"
+Write-Step "Marketplace local atualizado: $LocalMarketplacePath"
 if (Test-Path $workspaceAgentsRoot) {
-    Write-Host "Perfis globais de agentes instalados em: $CodexAgentsRoot"
+    Write-Step "Perfis globais de agentes instalados em: $CodexAgentsRoot"
 }
-Write-Host "Regra global do Codex atualizada em: $GlobalAgentsMarkdownPath"
+Write-Step "Regra global do Codex atualizada em: $GlobalAgentsMarkdownPath"
